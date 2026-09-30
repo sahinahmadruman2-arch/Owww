@@ -18,6 +18,7 @@ import com.example.ui.screens.analysis.AnalysisScreen
 import com.example.ui.screens.chat.ChatScreen
 import com.example.ui.screens.knowledge.KnowledgeScreen
 import com.example.ui.screens.library.LibraryScreen
+import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.teach.TeachScreen
 import com.example.ui.screens.training.TrainingScreen
 
@@ -44,11 +45,12 @@ fun UrBotsApp(
 
     val tabItems = listOf(
         NavTabItem(UrBotsTab.CHAT, "Chat", Icons.Default.ChatBubble, Icons.Outlined.ChatBubbleOutline),
-        NavTabItem(UrBotsTab.TEACH, "Teach", Icons.Default.School, Icons.Outlined.School),
         NavTabItem(UrBotsTab.KNOWLEDGE, "Knowledge", Icons.Default.AutoStories, Icons.Outlined.AutoStories),
+        NavTabItem(UrBotsTab.TEACH, "Teach", Icons.Default.School, Icons.Outlined.School),
+        NavTabItem(UrBotsTab.ANALYSIS, "Analyze", Icons.Default.Hub, Icons.Outlined.Hub),
         NavTabItem(UrBotsTab.LIBRARY, "Library", Icons.Default.Folder, Icons.Outlined.Folder),
-        NavTabItem(UrBotsTab.ANALYSIS, "Analysis", Icons.Default.Hub, Icons.Outlined.Hub),
-        NavTabItem(UrBotsTab.TRAINING, "Training", Icons.Default.ModelTraining, Icons.Outlined.ModelTraining)
+        NavTabItem(UrBotsTab.TRAINING, "Training", Icons.Default.ModelTraining, Icons.Outlined.ModelTraining),
+        NavTabItem(UrBotsTab.SETTINGS, "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
     )
 
     Scaffold(
@@ -95,13 +97,14 @@ fun UrBotsApp(
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = { viewModel.setTab(item.tab) },
+                        alwaysShowLabel = false,
                         icon = {
                             Icon(
                                 imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                                 contentDescription = item.title
                             )
                         },
-                        label = { Text(item.title) },
+                        label = { Text(item.title, maxLines = 1) },
                         modifier = Modifier.testTag("nav_tab_${item.title.lowercase()}")
                     )
                 }
@@ -116,11 +119,12 @@ fun UrBotsApp(
         ) {
             when (currentTab) {
                 UrBotsTab.CHAT -> ChatScreen(viewModel = viewModel)
-                UrBotsTab.TEACH -> TeachScreen(viewModel = viewModel)
                 UrBotsTab.KNOWLEDGE -> KnowledgeScreen(viewModel = viewModel)
-                UrBotsTab.LIBRARY -> LibraryScreen(viewModel = viewModel)
+                UrBotsTab.TEACH -> TeachScreen(viewModel = viewModel)
                 UrBotsTab.ANALYSIS -> AnalysisScreen(viewModel = viewModel)
+                UrBotsTab.LIBRARY -> LibraryScreen(viewModel = viewModel)
                 UrBotsTab.TRAINING -> TrainingScreen(viewModel = viewModel)
+                UrBotsTab.SETTINGS -> SettingsScreen(viewModel = viewModel)
             }
         }
     }

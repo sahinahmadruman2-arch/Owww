@@ -26,45 +26,36 @@ class KnowledgePipelineProcessor(
             id = runId,
             documentId = docId,
             documentTitle = title,
-            stepName = "Reading document...",
+            stepName = "📖 Reading document...",
             status = "IN_PROGRESS",
             progress = 0.1f,
-            totalSteps = 7,
+            totalSteps = 10,
             currentStepIndex = 1,
             summary = "Reading content and preparing chunking pipeline"
         )
         dao.insertTrainingRun(trainingRun)
 
-        // Step 1: Read content
-        onProgress(PipelineStageProgress("Reading document...", 0.14f))
-        delay(200)
+        // Stage 1: 📖 Reading document
+        onProgress(PipelineStageProgress("📖 Reading document...", 0.10f, currentStep = 1, totalSteps = 10))
+        delay(150)
 
-        // Step 2: Split into logical sections/chunks with overlap
-        onProgress(PipelineStageProgress("Splitting into context-preserving chunks...", 0.28f))
+        // Stage 2: 🧠 Understanding sections
+        onProgress(PipelineStageProgress("🧠 Understanding sections...", 0.20f, currentStep = 2, totalSteps = 10))
         dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Splitting chunks with overlap",
-            progress = 0.28f,
+            stepName = "🧠 Understanding sections",
+            progress = 0.20f,
             currentStepIndex = 2
         ))
         val chunks = splitIntoChunks(docId, title, content)
         dao.insertChunks(chunks)
-        delay(200)
+        delay(150)
 
-        // Step 3: Deep Analysis of each section
-        onProgress(PipelineStageProgress("Deeply analyzing sections...", 0.42f))
+        // Stage 3: 🔍 Finding concepts
+        onProgress(PipelineStageProgress("🔍 Finding concepts...", 0.30f, currentStep = 3, totalSteps = 10))
         dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Deep semantic analysis",
-            progress = 0.42f,
+            stepName = "🔍 Finding concepts",
+            progress = 0.30f,
             currentStepIndex = 3
-        ))
-        delay(250)
-
-        // Step 4: Extract Concepts, Definitions & Facts
-        onProgress(PipelineStageProgress("Extracting concepts & definitions...", 0.57f))
-        dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Extracting concepts & facts",
-            progress = 0.57f,
-            currentStepIndex = 4
         ))
         val extractedConcepts = mutableListOf<KnowledgeConceptEntity>()
         val extractedFacts = mutableListOf<KnowledgeFactEntity>()
@@ -86,35 +77,70 @@ class KnowledgePipelineProcessor(
                 outVariations = extractedVariations
             )
         }
-
         dao.insertConcepts(extractedConcepts)
-        dao.insertFacts(extractedFacts)
-        delay(200)
+        delay(150)
 
-        // Step 5: Build Semantic Relationships Graph
-        onProgress(PipelineStageProgress("Building semantic relationships graph...", 0.71f))
+        // Stage 4: 🔗 Connecting relationships
+        onProgress(PipelineStageProgress("🔗 Connecting relationships...", 0.40f, currentStep = 4, totalSteps = 10))
         dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Building relationships graph",
-            progress = 0.71f,
-            currentStepIndex = 5
+            stepName = "🔗 Connecting relationships",
+            progress = 0.40f,
+            currentStepIndex = 4
         ))
         dao.insertRelationships(extractedRelationships)
-        delay(200)
+        delay(150)
 
-        // Step 6: Generate Question Variations & Intent Maps
-        onProgress(PipelineStageProgress("Generating question variations & intents...", 0.85f))
+        // Stage 5: 💡 Creating knowledge / detecting important facts
+        onProgress(PipelineStageProgress("💡 Creating knowledge & facts...", 0.50f, currentStep = 5, totalSteps = 10))
         dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Generating rich question variations",
-            progress = 0.85f,
+            stepName = "💡 Creating knowledge & facts",
+            progress = 0.50f,
+            currentStepIndex = 5
+        ))
+        dao.insertFacts(extractedFacts)
+        delay(150)
+
+        // Stage 6: ❓ Generating question variations
+        onProgress(PipelineStageProgress("❓ Generating question variations...", 0.60f, currentStep = 6, totalSteps = 10))
+        dao.updateTrainingRun(trainingRun.copy(
+            stepName = "❓ Generating question variations",
+            progress = 0.60f,
             currentStepIndex = 6
         ))
         dao.insertQuestions(extractedQuestions)
         dao.insertAnswers(extractedAnswers)
         dao.insertQuestionVariations(extractedVariations)
-        delay(200)
+        delay(150)
 
-        // Step 7: Finalize Document & Knowledge Version
-        onProgress(PipelineStageProgress("Indexing structured knowledge...", 1.0f, isCompleted = true))
+        // Stage 7: 🧩 Creating semantic representations
+        onProgress(PipelineStageProgress("🧩 Creating semantic representations...", 0.70f, currentStep = 7, totalSteps = 10))
+        dao.updateTrainingRun(trainingRun.copy(
+            stepName = "🧩 Creating semantic representations",
+            progress = 0.70f,
+            currentStepIndex = 7
+        ))
+        delay(150)
+
+        // Stage 8: 🗂️ Indexing the knowledge
+        onProgress(PipelineStageProgress("🗂️ Indexing the knowledge...", 0.80f, currentStep = 8, totalSteps = 10))
+        dao.updateTrainingRun(trainingRun.copy(
+            stepName = "🗂️ Indexing the knowledge",
+            progress = 0.80f,
+            currentStepIndex = 8
+        ))
+        delay(150)
+
+        // Stage 9: 🛡️ Validating extracted information
+        onProgress(PipelineStageProgress("🛡️ Validating extracted information...", 0.90f, currentStep = 9, totalSteps = 10))
+        dao.updateTrainingRun(trainingRun.copy(
+            stepName = "🛡️ Validating extracted information",
+            progress = 0.90f,
+            currentStepIndex = 9
+        ))
+        delay(150)
+
+        // Stage 10: ✅ Analysis complete (Making knowledge searchable by meaning)
+        onProgress(PipelineStageProgress("✅ Analysis complete • Knowledge indexed!", 1.0f, currentStep = 10, totalSteps = 10, isCompleted = true))
         val document = KnowledgeDocumentEntity(
             id = docId,
             title = title,
@@ -140,10 +166,10 @@ class KnowledgePipelineProcessor(
         dao.insertVersion(versionEntity)
 
         dao.updateTrainingRun(trainingRun.copy(
-            stepName = "Completed",
+            stepName = "✅ Analysis complete",
             status = "COMPLETED",
             progress = 1.0f,
-            currentStepIndex = 7,
+            currentStepIndex = 10,
             completedAt = System.currentTimeMillis(),
             summary = "Successfully extracted ${extractedConcepts.size} concepts, ${extractedFacts.size} facts, ${extractedRelationships.size} relationships, ${extractedQuestions.size} Q&As, and ${extractedVariations.size} question variations."
         ))

@@ -120,6 +120,9 @@ interface KnowledgeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ConversationMessageEntity)
 
+    @Query("DELETE FROM conversations WHERE id = :id")
+    suspend fun deleteMessageById(id: String)
+
     @Query("DELETE FROM conversations WHERE sessionId = :sessionId")
     suspend fun clearSession(sessionId: String)
 

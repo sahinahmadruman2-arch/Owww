@@ -13,11 +13,12 @@ import kotlinx.coroutines.launch
 
 enum class UrBotsTab(val title: String) {
     CHAT("Chat"),
-    TEACH("Teach"),
     KNOWLEDGE("Knowledge"),
+    TEACH("Teach"),
+    ANALYSIS("Analyze"),
     LIBRARY("Library"),
-    ANALYSIS("Analysis"),
-    TRAINING("Training")
+    TRAINING("Training"),
+    SETTINGS("Settings")
 }
 
 data class DashboardStats(
@@ -89,6 +90,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var isChatLoading = MutableStateFlow(false)
         private set
+    var chatLoadingStage = MutableStateFlow("UrBots7 is thinking...")
+        private set
 
     // Knowledge Input UI state
     var docTitleInput = MutableStateFlow("")
@@ -139,10 +142,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (query.isEmpty() || isChatLoading.value) return
         chatInput.value = ""
         isChatLoading.value = true
+        chatLoadingStage.value = "Understanding intent & context..."
 
         viewModelScope.launch {
             try {
+                chatLoadingStage.value = "Reasoning & generating response..."
                 repository.askQuestion(query)
+            } finally {
+                isChatLoading.value = false
+            }
+        }
+    }
+
+    fun regenerateLastMessage() {
+        if (isChatLoading.value) return
+        isChatLoading.value = true
+        chatLoadingStage.value = "Regenerating response..."
+        viewModelScope.launch {
+            try {
+                repository.regenerateLastMessage()
             } finally {
                 isChatLoading.value = false
             }

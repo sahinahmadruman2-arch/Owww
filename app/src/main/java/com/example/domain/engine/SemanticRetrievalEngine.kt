@@ -31,17 +31,19 @@ class SemanticRetrievalEngine(
         val queryLower = rawQuery.trim().lowercase(Locale.ROOT)
         val recentMessages = passedRecentMessages ?: dao.getRecentMessages(sessionId, limit = 6)
 
-        // 1. Detect User Intent First
-        val userIntent = UserIntentClassifier.classify(rawQuery, recentMessages)
+        // 1. Semantic Understanding & Deep Intent Analysis First
+        val analysis = SemanticUnderstandingEngine.analyze(rawQuery, recentMessages)
+        val userIntent = analysis.intent
 
-        // If intent is purely conversational (greeting, casual statement, farewell, etc.),
-        // do not let knowledge retrieval definitions override normal conversation!
-        if (userIntent.isConversational) {
+        // If intent is conversational or reporting a problem/asking for help,
+        // do not let textbook knowledge definitions override user conversation!
+        if (userIntent.isConversational || userIntent.isHelpOrProblem) {
             return RetrievalResult(
                 query = rawQuery,
-                resolvedContext = null,
+                resolvedContext = if (analysis.referencedEntities.isNotEmpty()) analysis.referencedEntities.first() else null,
                 intent = "conversation",
                 userIntent = userIntent,
+                semanticAnalysis = analysis,
                 matchedConcepts = emptyList(),
                 matchedFacts = emptyList(),
                 matchedRelationships = emptyList(),
@@ -176,6 +178,7 @@ class SemanticRetrievalEngine(
             resolvedContext = resolvedContext,
             intent = determineIntent(queryLower),
             userIntent = userIntent,
+            semanticAnalysis = analysis,
             matchedConcepts = matchedConcepts,
             matchedFacts = matchedFacts,
             matchedRelationships = matchedRelationships,

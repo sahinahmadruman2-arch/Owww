@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.domain.engine.AnswerGenerator
+import com.example.domain.engine.SemanticUnderstandingEngine
 import com.example.domain.engine.UserIntentClassifier
 import com.example.domain.model.RetrievalResult
 import com.example.domain.model.UserIntent
@@ -43,6 +44,52 @@ class ConversationIntentTest {
 
         // TEST 10
         assertEquals(UserIntent.LEARNING_EXPLANATION, UserIntentClassifier.classify("Tell me about greetings."))
+    }
+
+    @Test
+    fun testSemanticProblemAndHelpUnderstanding() = runBlocking {
+        // 1. "I have a problem."
+        val a1 = SemanticUnderstandingEngine.analyze("I have a problem.")
+        assertEquals(UserIntent.REPORTING_PROBLEM, a1.intent)
+        val r1 = answerGenerator.generateAnswer("I have a problem.", RetrievalResult(query = "I have a problem.", userIntent = a1.intent, semanticAnalysis = a1))
+        assertTrue(r1.answerText.contains("I'm sorry to hear that. What's the problem?"))
+
+        // 2. "I'm having an issue." & "Something is wrong."
+        val a2 = SemanticUnderstandingEngine.analyze("I'm having an issue.")
+        assertEquals(UserIntent.REPORTING_PROBLEM, a2.intent)
+        val a3 = SemanticUnderstandingEngine.analyze("Something is wrong.")
+        assertEquals(UserIntent.REPORTING_PROBLEM, a3.intent)
+
+        // 3. "I need help."
+        val a4 = SemanticUnderstandingEngine.analyze("I need help.")
+        assertEquals(UserIntent.REQUESTING_HELP, a4.intent)
+        val r4 = answerGenerator.generateAnswer("I need help.", RetrievalResult(query = "I need help.", userIntent = a4.intent, semanticAnalysis = a4))
+        assertTrue(r4.answerText.contains("Of course! What do you need help with?"))
+
+        // 4. "I'm confused."
+        val a5 = SemanticUnderstandingEngine.analyze("I'm confused.")
+        assertEquals(UserIntent.CONFUSION, a5.intent)
+        val r5 = answerGenerator.generateAnswer("I'm confused.", RetrievalResult(query = "I'm confused.", userIntent = a5.intent, semanticAnalysis = a5))
+        assertTrue(r5.answerText.contains("No worries. Tell me what's confusing you."))
+
+        // 5. "My Roblox game isn't working."
+        val a6 = SemanticUnderstandingEngine.analyze("My Roblox game isn't working.")
+        assertEquals(UserIntent.REPORTING_PROBLEM, a6.intent)
+        assertEquals("Roblox game", a6.topic)
+        val r6 = answerGenerator.generateAnswer("My Roblox game isn't working.", RetrievalResult(query = "My Roblox game isn't working.", userIntent = a6.intent, semanticAnalysis = a6))
+        assertTrue(r6.answerText.contains("Roblox game") && r6.answerText.contains("help"))
+
+        // 6. "What does hello mean?"
+        val a7 = SemanticUnderstandingEngine.analyze("What does hello mean?")
+        assertEquals(UserIntent.REQUESTING_EXPLANATION, a7.intent)
+        val r7 = answerGenerator.generateAnswer("What does hello mean?", RetrievalResult(query = "What does hello mean?", userIntent = a7.intent, semanticAnalysis = a7))
+        assertTrue(r7.answerText.contains("common greeting") && r7.answerText.contains("polite"))
+
+        // 7. "How should I reply to hello?"
+        val a8 = SemanticUnderstandingEngine.analyze("How should I reply to hello?")
+        assertEquals(UserIntent.REQUESTING_INSTRUCTIONS, a8.intent)
+        val r8 = answerGenerator.generateAnswer("How should I reply to hello?", RetrievalResult(query = "How should I reply to hello?", userIntent = a8.intent, semanticAnalysis = a8))
+        assertTrue(r8.answerText.contains("reply with") && r8.answerText.contains("Hello"))
     }
 
     @Test

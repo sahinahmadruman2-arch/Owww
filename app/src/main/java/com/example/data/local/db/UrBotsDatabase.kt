@@ -21,7 +21,7 @@ import com.example.data.local.entity.*
         TrainingRunEntity::class,
         KnowledgeVersionEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class UrBotsDatabase : RoomDatabase() {

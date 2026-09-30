@@ -110,6 +110,7 @@ data class ConversationMessageEntity(
     val message: String,
     val usedSourcesJson: String = "[]",
     val resolvedContext: String? = null,
+    val analysisMetadataJson: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 

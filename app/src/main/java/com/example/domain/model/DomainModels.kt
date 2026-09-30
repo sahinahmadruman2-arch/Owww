@@ -6,22 +6,55 @@ import com.example.data.local.entity.KnowledgeRelationshipEntity
 import com.example.data.local.entity.LearnedAnswerEntity
 
 enum class UserIntent {
-    NORMAL_CONVERSATION,
+    GREETING,
+    FAREWELL,
+    CASUAL_CONVERSATION,
     QUESTION,
+    REQUESTING_HELP,
+    REPORTING_PROBLEM,
+    REQUESTING_EXPLANATION,
+    REQUESTING_INSTRUCTIONS,
+    THANKING,
+    APOLOGY,
+    AGREEMENT,
+    DISAGREEMENT,
+    CONFUSION,
+    STATEMENT,
+    FOLLOW_UP,
+    OTHER,
+
+    // Aliases / Compatibility
+    NORMAL_CONVERSATION,
     REQUEST_FOR_INFORMATION,
     INSTRUCTION,
     LEARNING_EXPLANATION,
-    GREETING,
-    FAREWELL,
     THANKS,
-    APOLOGY,
     CASUAL_STATEMENT,
     AMBIGUOUS;
 
     val isConversational: Boolean
-        get() = this == GREETING || this == NORMAL_CONVERSATION || this == CASUAL_STATEMENT ||
-                this == THANKS || this == FAREWELL || this == APOLOGY
+        get() = this == GREETING || this == CASUAL_CONVERSATION || this == NORMAL_CONVERSATION ||
+                this == CASUAL_STATEMENT || this == THANKING || this == THANKS ||
+                this == FAREWELL || this == APOLOGY || this == AGREEMENT || this == DISAGREEMENT ||
+                this == STATEMENT
+
+    val isHelpOrProblem: Boolean
+        get() = this == REQUESTING_HELP || this == REPORTING_PROBLEM || this == CONFUSION
 }
+
+data class MessageSemanticAnalysis(
+    val rawText: String,
+    val intent: UserIntent,
+    val topic: String? = null,
+    val entities: List<String> = emptyList(),
+    val action: String? = null,
+    val speechAct: String = "statement", // asking, telling, greeting, requesting_help, reporting_problem, explaining, continuing
+    val sentiment: String = "neutral", // positive, negative, neutral, concerned, frustrated, confused
+    val conversationGoal: String = "Communicate with UrBots7",
+    val referencedEntities: List<String> = emptyList(), // resolved "it", "that", "the game", etc.
+    val confidence: String = "High",
+    val detectedMeaning: String
+)
 
 data class SourceCitation(
     val documentTitle: String,
@@ -35,6 +68,7 @@ data class RetrievalResult(
     val resolvedContext: String? = null,
     val intent: String = "general",
     val userIntent: UserIntent = UserIntent.QUESTION,
+    val semanticAnalysis: MessageSemanticAnalysis? = null,
     val matchedConcepts: List<KnowledgeConceptEntity> = emptyList(),
     val matchedFacts: List<KnowledgeFactEntity> = emptyList(),
     val matchedRelationships: List<KnowledgeRelationshipEntity> = emptyList(),
@@ -50,6 +84,7 @@ data class GeneratedAnswerResult(
     val sources: List<SourceCitation> = emptyList(),
     val resolvedContext: String? = null,
     val userIntent: UserIntent? = null,
+    val semanticAnalysis: MessageSemanticAnalysis? = null,
     val isSufficient: Boolean = true,
     val confidence: Float = 1.0f,
     val hasConflict: Boolean = false,
@@ -59,6 +94,8 @@ data class GeneratedAnswerResult(
 data class PipelineStageProgress(
     val stageName: String,
     val progress: Float,
+    val currentStep: Int = 1,
+    val totalSteps: Int = 10,
     val isCompleted: Boolean = false,
     val isError: Boolean = false,
     val errorMessage: String? = null

@@ -1,5 +1,6 @@
 package com.example.ui.screens.analysis
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,28 +11,34 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.KnowledgeConceptEntity
 import com.example.data.local.entity.KnowledgeFactEntity
 import com.example.data.local.entity.KnowledgeRelationshipEntity
+import com.example.ui.DashboardStats
 import com.example.ui.MainViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class AnalysisFilter(val label: String) {
     ALL("All"),
+    TREE("Visual Tree"),
     CONCEPTS("Concepts"),
     FACTS("Facts"),
     RELATIONSHIPS("Relationships"),
     VARIATIONS("Question Variations"),
-    CONFLICTS("Conflicts & Ambiguities")
+    CONFLICTS("Conflicts")
 }
 
 @Composable
@@ -39,10 +46,19 @@ fun AnalysisScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val stats by viewModel.dashboardStats.collectAsState()
     val concepts by viewModel.concepts.collectAsState()
     val facts by viewModel.facts.collectAsState()
     val relationships by viewModel.relationships.collectAsState()
+    val versions by viewModel.versions.collectAsState()
+    val runs by viewModel.trainingRuns.collectAsState()
     var selectedFilter by remember { mutableStateOf(AnalysisFilter.ALL) }
+
+    val lastRunTime = remember(runs) {
+        val last = runs.firstOrNull()?.completedAt ?: runs.firstOrNull()?.startedAt
+        if (last != null) SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(last))
+        else "Recently"
+    }
 
     Column(
         modifier = modifier
@@ -65,12 +81,12 @@ fun AnalysisScreen(
             )
             Column {
                 Text(
-                    text = "Knowledge Graph & Analysis",
+                    text = "Knowledge Analysis Dashboard",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${concepts.size} concepts • ${facts.size} facts • ${relationships.size} relationships",
+                    text = "Structured semantic graph & deep document reasoning",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -93,11 +109,23 @@ fun AnalysisScreen(
             }
         }
 
-        // List
+        // List & Dashboard
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
+            // Dashboard Metrics Overview Card (Section 10)
+            if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.TREE) {
+                item {
+                    DashboardMetricsCard(stats = stats, versionStr = "v${versions.firstOrNull()?.versionNumber ?: 1}", lastRunTime = lastRunTime)
+                }
+
+                // Visual Knowledge Structure (Section 10)
+                item {
+                    VisualKnowledgeTreeCard()
+                }
+            }
+
             // Concepts Section
             if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.CONCEPTS) {
                 item {
@@ -120,7 +148,7 @@ fun AnalysisScreen(
                     )
                 }
                 items(relationships, key = { "rel_${it.id}" }) { rel ->
-                    RelationshipCard(rel = rel)
+                    RelationshipCard(relationship = rel)
                 }
             }
 
@@ -128,8 +156,8 @@ fun AnalysisScreen(
             if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.FACTS) {
                 item {
                     SectionHeader(
-                        title = "Structured Facts & Statements (${facts.size})",
-                        icon = Icons.Default.Lightbulb
+                        title = "Extracted Facts (${facts.size})",
+                        icon = Icons.Default.FormatQuote
                     )
                 }
                 items(facts, key = { "fact_${it.id}" }) { fact ->
@@ -137,29 +165,139 @@ fun AnalysisScreen(
                 }
             }
 
-            // Question Variations Section
+            // Variations Section
             if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.VARIATIONS) {
-                item {
-                    SectionHeader(
-                        title = "Semantic Question Variations",
-                        icon = Icons.Default.HelpOutline
-                    )
-                }
                 item {
                     QuestionVariationsShowcase()
                 }
             }
 
-            // Conflicts & Ambiguities Section
+            // Conflicts Section
             if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.CONFLICTS) {
                 item {
-                    SectionHeader(
-                        title = "Conflicts & Ambiguity Management",
-                        icon = Icons.Default.WarningAmber
+                    ConflictsInfoCard()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime: String) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "KNOWLEDGE REASONING METRICS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Text(
+                        text = versionStr,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
-                item {
-                    ConflictsInfoCard()
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MetricItem("Documents", stats.documents.toString())
+                MetricItem("Chunks", stats.chunks.toString())
+                MetricItem("Concepts", stats.concepts.toString())
+                MetricItem("Facts", stats.facts.toString())
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MetricItem("Relations", stats.relationships.toString())
+                MetricItem("Variations", stats.questions.toString())
+                MetricItem("Index Status", "Active")
+                MetricItem("Last Analyzed", lastRunTime)
+            }
+        }
+    }
+}
+
+@Composable
+fun MetricItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.Start) {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+fun VisualKnowledgeTreeCard() {
+    var expanded by remember { mutableStateOf(true) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = "Visual Knowledge Structure",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
+                    Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = """
+Greeting
+├── Hi
+│   ├── casual
+│   └── friendly
+├── Hello
+│   ├── casual
+│   └── polite
+├── Hey
+│   └── casual
+└── Meeting Someone (First Time)
+    └── Nice to meet you
+                            """.trimIndent(),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
@@ -170,20 +308,19 @@ fun AnalysisScreen(
 fun SectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(vertical = 4.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -193,11 +330,11 @@ fun ConceptCard(concept: KnowledgeConceptEntity) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -205,103 +342,86 @@ fun ConceptCard(concept: KnowledgeConceptEntity) {
             ) {
                 Text(
                     text = concept.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                SuggestionChip(
-                    onClick = {},
-                    label = { Text(concept.topic, fontSize = 11.sp) }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = concept.definition,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (concept.examplesJson != "[]" && concept.examplesJson.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
                     shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Text(
-                        text = "Examples: ${concept.examplesJson.replace("[\"", "").replace("\"]", "").replace("\",\"", ", ")}",
+                        text = concept.topic,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(6.dp)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
             }
+            Text(
+                text = concept.definition,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-fun RelationshipCard(rel: KnowledgeRelationshipEntity) {
+fun RelationshipCard(relationship: KnowledgeRelationshipEntity) {
     Card(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.padding(end = 8.dp)
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.size(36.dp)
             ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = relationship.fromConcept,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                    Text(
+                        text = relationship.toConcept,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Text(
-                    text = rel.fromConcept,
+                    text = "Type: ${relationship.relationshipType} • ${relationship.description}",
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.secondary
-            )
-
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.padding(horizontal = 8.dp)
-            ) {
-                Text(
-                    text = rel.relationshipType.replace("_", " "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.secondary
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = rel.toConcept,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }
@@ -309,30 +429,23 @@ fun RelationshipCard(rel: KnowledgeRelationshipEntity) {
 @Composable
 fun FactCard(fact: KnowledgeFactEntity) {
     Card(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = fact.statement,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                AssistChip(
-                    onClick = {},
-                    label = { Text(fact.category, fontSize = 10.sp) }
-                )
-            }
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = fact.statement,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Topic: ${fact.topic} • Category: ${fact.category}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
         }
     }
 }

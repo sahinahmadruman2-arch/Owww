@@ -77,7 +77,7 @@ class UrBotsRepository(
         val result = answerGenerator.generateAnswer(query, retrieval, recentMessages)
 
         // 3. Convert citations to JSON (citations only apply to knowledge retrieval)
-        val citationsJson = if (retrieval.userIntent.isConversational) {
+        val citationsJson = if (retrieval.userIntent.isConversational || retrieval.userIntent.isHelpOrProblem) {
             "[]"
         } else {
             JSONArray().apply {
@@ -92,6 +92,16 @@ class UrBotsRepository(
             }.toString()
         }
 
+        val analysisJson = JSONObject().apply {
+            val sem = result.semanticAnalysis
+            put("intent", sem?.intent?.name ?: result.userIntent?.name ?: "GENERAL")
+            put("topic", sem?.topic ?: "General")
+            put("detectedMeaning", sem?.detectedMeaning ?: "User communication")
+            put("relevantKnowledgeCount", result.sources.size)
+            put("confidence", sem?.confidence ?: "High")
+            put("speechAct", sem?.speechAct ?: "statement")
+        }.toString()
+
         // 4. Record assistant message
         val assistantMsg = ConversationMessageEntity(
             id = UUID.randomUUID().toString(),
@@ -99,10 +109,62 @@ class UrBotsRepository(
             role = "assistant",
             message = result.answerText,
             usedSourcesJson = citationsJson,
-            resolvedContext = result.resolvedContext
+            resolvedContext = result.resolvedContext,
+            analysisMetadataJson = analysisJson
         )
         dao.insertMessage(assistantMsg)
 
+        return result
+    }
+
+    suspend fun regenerateLastMessage(sessionId: String = "default_session"): GeneratedAnswerResult? {
+        val messages = dao.getRecentMessages(sessionId, limit = 4)
+        val lastAssistant = messages.firstOrNull { it.role == "assistant" }
+        val lastUser = messages.firstOrNull { it.role == "user" } ?: return null
+
+        if (lastAssistant != null) {
+            dao.deleteMessageById(lastAssistant.id)
+        }
+
+        val remainingMessages = dao.getRecentMessages(sessionId, limit = 6).filter { it.id != lastUser.id }
+        val retrieval = retrievalEngine.retrieve(lastUser.message, sessionId, remainingMessages)
+        val result = answerGenerator.generateAnswer(lastUser.message, retrieval, remainingMessages)
+
+        val citationsJson = if (retrieval.userIntent.isConversational || retrieval.userIntent.isHelpOrProblem) {
+            "[]"
+        } else {
+            JSONArray().apply {
+                result.sources.forEach { src ->
+                    put(JSONObject().apply {
+                        put("documentTitle", src.documentTitle)
+                        put("sectionTitle", src.sectionTitle)
+                        put("statement", src.statement ?: "")
+                        put("conceptName", src.conceptName ?: "")
+                    })
+                }
+            }.toString()
+        }
+
+        val analysisJson = JSONObject().apply {
+            val sem = result.semanticAnalysis
+            put("intent", sem?.intent?.name ?: result.userIntent?.name ?: "GENERAL")
+            put("topic", sem?.topic ?: "General")
+            put("detectedMeaning", sem?.detectedMeaning ?: "User communication")
+            put("relevantKnowledgeCount", result.sources.size)
+            put("confidence", sem?.confidence ?: "High")
+            put("speechAct", sem?.speechAct ?: "statement")
+        }.toString()
+
+        val assistantMsg = ConversationMessageEntity(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            role = "assistant",
+            message = result.answerText,
+            usedSourcesJson = citationsJson,
+            resolvedContext = result.resolvedContext,
+            analysisMetadataJson = analysisJson
+        )
+        dao.insertMessage(assistantMsg)
         return result
     }
 

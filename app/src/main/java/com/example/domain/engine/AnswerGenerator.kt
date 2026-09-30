@@ -4,6 +4,7 @@ import com.example.BuildConfig
 import com.example.data.local.entity.ConversationMessageEntity
 import com.example.data.remote.*
 import com.example.domain.model.GeneratedAnswerResult
+import com.example.domain.model.MessageSemanticAnalysis
 import com.example.domain.model.RetrievalResult
 import com.example.domain.model.UserIntent
 import java.util.Locale
@@ -15,44 +16,89 @@ class AnswerGenerator {
         retrieval: RetrievalResult,
         recentMessages: List<ConversationMessageEntity> = emptyList()
     ): GeneratedAnswerResult {
-        val intent = retrieval.userIntent
+        val analysis = retrieval.semanticAnalysis ?: SemanticUnderstandingEngine.analyze(query, recentMessages)
+        val intent = analysis.intent
 
-        // A. CONVERSATIONAL INTENT HANDLING
-        // Rule: When user is having a normal conversation, respond conversationally,
-        // do not explain the meaning of words or sentences!
-        if (intent.isConversational) {
+        var candidateAnswer: String
+
+        // 1. HELP / PROBLEM REPORTING INTENTS (Rule 1, 3, 20)
+        // Must NEVER generate unrelated knowledge definitions or "I'm doing well"!
+        if (intent.isHelpOrProblem) {
+            val localDraft = synthesizeProblemOrHelpAnswer(analysis, recentMessages)
+            candidateAnswer = localDraft
+
+            // Try Gemini if available
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
                 try {
-                    val geminiAnswer = callGemini(query, retrieval, recentMessages, apiKey)
+                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
                     if (geminiAnswer.isNotBlank()) {
-                        return GeneratedAnswerResult(
-                            answerText = geminiAnswer.trim(),
-                            sources = emptyList(),
-                            resolvedContext = null,
-                            userIntent = intent,
-                            isSufficient = true,
-                            confidence = 0.98f
-                        )
+                        candidateAnswer = geminiAnswer.trim()
                     }
                 } catch (_: Exception) {
-                    // Fall through to deterministic conversational reasoning
+                    // Retain localDraft
                 }
             }
 
-            val localAnswer = synthesizeLocalAnswer(query, retrieval, recentMessages)
+            // Semantic Relevance Validation
+            val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
             return GeneratedAnswerResult(
-                answerText = localAnswer,
+                answerText = validation.refinedAnswer,
+                sources = emptyList(),
+                resolvedContext = if (analysis.referencedEntities.isNotEmpty()) analysis.referencedEntities.first() else null,
+                userIntent = intent,
+                semanticAnalysis = analysis,
+                isSufficient = true,
+                confidence = 0.98f
+            )
+        }
+
+        // 2. CONVERSATIONAL INTENTS (Greetings, Casual Chat, Farewells, Thanks)
+        if (intent.isConversational) {
+            candidateAnswer = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
+
+            val apiKey = BuildConfig.GEMINI_API_KEY
+            if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                try {
+                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
+                    if (geminiAnswer.isNotBlank()) {
+                        candidateAnswer = geminiAnswer.trim()
+                    }
+                } catch (_: Exception) {
+                    // Fall back to candidateAnswer
+                }
+            }
+
+            // Semantic Relevance Validation
+            val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
+            return GeneratedAnswerResult(
+                answerText = validation.refinedAnswer,
                 sources = emptyList(),
                 resolvedContext = null,
                 userIntent = intent,
+                semanticAnalysis = analysis,
+                isSufficient = true,
+                confidence = 0.98f
+            )
+        }
+
+        // 3. FOLLOW UP / CONTINUATION
+        if (intent == UserIntent.FOLLOW_UP) {
+            candidateAnswer = synthesizeFollowUpAnswer(analysis, recentMessages)
+            val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
+            return GeneratedAnswerResult(
+                answerText = validation.refinedAnswer,
+                sources = emptyList(),
+                resolvedContext = if (analysis.referencedEntities.isNotEmpty()) analysis.referencedEntities.first() else null,
+                userIntent = intent,
+                semanticAnalysis = analysis,
                 isSufficient = true,
                 confidence = 0.95f
             )
         }
 
-        // B. NON-CONVERSATIONAL (QUESTIONS, EXPLANATIONS, LEARNING)
-        // Step 1: Handle Conflicts if detected
+        // 4. KNOWLEDGE QUESTIONS, EXPLANATIONS & INSTRUCTIONS
+        // Check for knowledge conflicts
         if (retrieval.conflicts.isNotEmpty()) {
             val conflictText = buildString {
                 append("Multiple perspectives exist in the stored knowledge:\n")
@@ -64,22 +110,25 @@ class AnswerGenerator {
                 sources = retrieval.citations,
                 resolvedContext = retrieval.resolvedContext,
                 userIntent = intent,
+                semanticAnalysis = analysis,
                 isSufficient = true,
                 hasConflict = true,
                 conflictDescription = retrieval.conflicts.firstOrNull()
             )
         }
 
-        // Step 2: Check sufficiency for informational questions
-        if (!retrieval.isSufficient || (retrieval.matchedConcepts.isEmpty() && retrieval.matchedFacts.isEmpty() && retrieval.matchedAnswers.isEmpty())) {
-            // Check if local synthesis has knowledge for this query before failing
-            val localAttempt = synthesizeLocalAnswer(query, retrieval, recentMessages)
-            if (!localAttempt.startsWith("I understand!")) {
+        // Check sufficiency for informational queries
+        val localAttempt = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
+        val hasLocalKnowledge = !localAttempt.startsWith("I understand! Let me know")
+
+        if (!retrieval.isSufficient && (retrieval.matchedConcepts.isEmpty() && retrieval.matchedFacts.isEmpty() && retrieval.matchedAnswers.isEmpty())) {
+            if (hasLocalKnowledge) {
                 return GeneratedAnswerResult(
                     answerText = localAttempt,
                     sources = retrieval.citations,
                     resolvedContext = retrieval.resolvedContext,
                     userIntent = intent,
+                    semanticAnalysis = analysis,
                     isSufficient = true,
                     confidence = 0.90f
                 )
@@ -90,63 +139,102 @@ class AnswerGenerator {
                 sources = emptyList(),
                 resolvedContext = retrieval.resolvedContext,
                 userIntent = intent,
+                semanticAnalysis = analysis,
                 isSufficient = false,
                 confidence = 0f
             )
         }
 
-        // Step 3: Try Gemini API if key is available
+        candidateAnswer = localAttempt
+
+        // Try Gemini API if key is available
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
             try {
-                val geminiAnswer = callGemini(query, retrieval, recentMessages, apiKey)
+                val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
                 if (geminiAnswer.isNotBlank()) {
-                    return GeneratedAnswerResult(
-                        answerText = geminiAnswer.trim(),
-                        sources = retrieval.citations,
-                        resolvedContext = retrieval.resolvedContext,
-                        userIntent = intent,
-                        isSufficient = true,
-                        confidence = 0.98f
-                    )
+                    candidateAnswer = geminiAnswer.trim()
                 }
             } catch (_: Exception) {
                 // Fall back gracefully to local deterministic reasoning
             }
         }
 
-        // Step 4: High-intelligence Local Semantic Reasoning Engine
-        val localAnswer = synthesizeLocalAnswer(query, retrieval, recentMessages)
+        // Final semantic relevance check
+        val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
         return GeneratedAnswerResult(
-            answerText = localAnswer,
+            answerText = validation.refinedAnswer,
             sources = retrieval.citations,
             resolvedContext = retrieval.resolvedContext,
             userIntent = intent,
+            semanticAnalysis = analysis,
             isSufficient = true,
             confidence = 0.95f
         )
     }
 
+    private fun synthesizeProblemOrHelpAnswer(
+        analysis: MessageSemanticAnalysis,
+        recentMessages: List<ConversationMessageEntity>
+    ): String {
+        return when (analysis.intent) {
+            UserIntent.REPORTING_PROBLEM -> {
+                val topic = analysis.topic
+                when {
+                    topic != null && topic.contains("roblox", ignoreCase = true) ->
+                        "Sure, tell me what's wrong with your Roblox game and I'll try to help."
+                    topic != null ->
+                        "Sure, tell me what's wrong with your $topic and I'll try to help."
+                    else ->
+                        "I'm sorry to hear that. What's the problem? I'll try to help."
+                }
+            }
+            UserIntent.REQUESTING_HELP -> {
+                val topic = analysis.topic
+                if (topic != null) {
+                    "Of course! What do you need help with regarding your $topic?"
+                } else {
+                    "Of course! What do you need help with?"
+                }
+            }
+            UserIntent.CONFUSION -> {
+                "No worries. Tell me what's confusing you."
+            }
+            else -> "I'm here to help. What's going on?"
+        }
+    }
+
+    private fun synthesizeFollowUpAnswer(
+        analysis: MessageSemanticAnalysis,
+        recentMessages: List<ConversationMessageEntity>
+    ): String {
+        val clean = analysis.rawText.lowercase(Locale.ROOT)
+        if (clean.contains("disappear") || clean.contains("vanish")) {
+            return "When objects disappear upon publishing in Roblox Studio, it's often caused by Archivable being set to false, streaming enabled issues, or parts not being anchored. Have you checked if the parts are anchored or if any scripts run on startup?"
+        }
+        val topic = analysis.topic ?: "that"
+        return "I understand. Let's look closer at $topic. Can you share more details about what happens?"
+    }
+
     private suspend fun callGemini(
         query: String,
         retrieval: RetrievalResult,
+        analysis: MessageSemanticAnalysis,
         recentMessages: List<ConversationMessageEntity>,
         apiKey: String
     ): String {
         val systemPrompt = """
-            You are UrBots7, a conversational AI.
+            You are UrBots7, a conversational AI with semantic reasoning and knowledge capabilities.
 
             Your first responsibility is to understand what the user is trying to DO with their message.
+            Never behave like a keyword-matching chatbot. Prioritize whole semantic meaning.
 
             Do not automatically explain the meaning of words or sentences.
-
             If the user is talking to you normally, talk back naturally.
-
+            If the user reports a problem or asks for help, be empathetic and ask what the problem is to help them.
             Only provide definitions, explanations, analysis, or educational information when the user is asking for them or when the context clearly requires them.
 
             Knowledge retrieval supports your answer, but retrieved knowledge must not override conversational intent.
-
-            For example, if the user says 'Hi', respond conversationally rather than explaining what 'Hi' means.
         """.trimIndent()
 
         val promptBuilder = StringBuilder()
@@ -161,8 +249,8 @@ class AnswerGenerator {
             promptBuilder.append("\n")
         }
 
-        // Only include knowledge evidence if not purely conversational
-        if (!retrieval.userIntent.isConversational && retrieval.isSufficient) {
+        // Only include knowledge evidence if not purely conversational or problem reporting
+        if (!analysis.intent.isConversational && !analysis.intent.isHelpOrProblem && retrieval.isSufficient) {
             promptBuilder.append("KNOWLEDGE EVIDENCE (use this only to support answers when user requests information):\n")
             retrieval.matchedFacts.forEach { promptBuilder.append("- ").append(it.statement).append("\n") }
             retrieval.matchedConcepts.forEach {
@@ -177,8 +265,11 @@ class AnswerGenerator {
             promptBuilder.append("\n")
         }
 
-        promptBuilder.append("DETECTED USER INTENT: ${retrieval.userIntent.name}\n")
-        promptBuilder.append("USER MESSAGE:\n$query")
+        promptBuilder.append("SEMANTIC ANALYSIS:\n")
+        promptBuilder.append("- Detected Intent: ${analysis.intent.name}\n")
+        promptBuilder.append("- Detected Meaning: ${analysis.detectedMeaning}\n")
+        if (analysis.topic != null) promptBuilder.append("- Topic: ${analysis.topic}\n")
+        promptBuilder.append("\nUSER MESSAGE:\n$query")
 
         val request = GeminiRequest(
             contents = listOf(
@@ -199,19 +290,17 @@ class AnswerGenerator {
     private fun synthesizeLocalAnswer(
         query: String,
         retrieval: RetrievalResult,
+        analysis: MessageSemanticAnalysis,
         recentMessages: List<ConversationMessageEntity> = emptyList()
     ): String {
         val qLower = query.lowercase(Locale.ROOT)
         val clean = qLower.replace(Regex("[^a-z0-9' ]"), " ").replace(Regex("\\s+"), " ").trim()
-        val intent = retrieval.userIntent
+        val intent = analysis.intent
 
-        // ==================================================
-        // 1. CONVERSATIONAL INTENTS (Rule 1, 2, 4, 8, 9)
-        // ==================================================
+        // 1. CONVERSATIONAL INTENTS
         if (intent.isConversational) {
             when (intent) {
                 UserIntent.GREETING -> {
-                    // Check for combined greetings: "Hi, how are you?", "Hello! How are you?"
                     if (clean.contains("how are you") || clean.contains("hows it going") || clean.contains("how's it going")) {
                         return "Hi! I'm doing great, thank you! How are you doing today?"
                     }
@@ -236,7 +325,7 @@ class AnswerGenerator {
                     return "Hi! How are you?"
                 }
 
-                UserIntent.NORMAL_CONVERSATION -> {
+                UserIntent.CASUAL_CONVERSATION, UserIntent.NORMAL_CONVERSATION -> {
                     if (clean.contains("how are you") || clean.contains("how are you doing") || clean.contains("how do you do")) {
                         return "I'm good, thanks! How are you?"
                     }
@@ -249,14 +338,10 @@ class AnswerGenerator {
                     if (clean.contains("how's it going") || clean.contains("hows it going")) {
                         return "It's going great, thanks! How about you?"
                     }
-                    return "I'm doing well! How's everything going with you?"
-                }
-
-                UserIntent.CASUAL_STATEMENT -> {
-                    if (clean.contains("nice to meet you") || clean.contains("nice meeting you") || clean.contains("pleased to meet you") || clean.contains("glad to meet you")) {
+                    if (clean.contains("nice to meet you") || clean.contains("pleased to meet you")) {
                         return "Nice to meet you too!"
                     }
-                    if (clean.contains("fine") || clean.contains("good") || clean.contains("doing well") || clean.contains("great") || clean.contains("pretty good")) {
+                    if (clean.contains("fine") || clean.contains("good") || clean.contains("doing well") || clean.contains("great")) {
                         val lastAssistant = recentMessages.firstOrNull { it.role == "assistant" }?.message?.lowercase(Locale.ROOT)
                         return if (lastAssistant != null && (lastAssistant.contains("how are you") || lastAssistant.contains("what's up"))) {
                             "That's great to hear! 😊 What are you up to?"
@@ -264,21 +349,23 @@ class AnswerGenerator {
                             "That's great to hear! 😊"
                         }
                     }
-                    if (clean.contains("nothing") || clean.contains("nothing much") || clean.contains("not much") || clean.contains("chilling") || clean.contains("relaxing")) {
-                        val lastAssistant = recentMessages.firstOrNull { it.role == "assistant" }?.message?.lowercase(Locale.ROOT)
-                        return if (lastAssistant != null && (lastAssistant.contains("up to") || lastAssistant.contains("doing"))) {
-                            "Nice 😄 Just relaxing?"
-                        } else {
-                            "Just chilling? 😄"
-                        }
+                    if (clean.contains("nothing") || clean.contains("nothing much") || clean.contains("not much") || clean.contains("chilling")) {
+                        return "Nice 😄 Just relaxing?"
                     }
-                    if (clean == "ok" || clean == "okay" || clean == "cool" || clean == "sounds good" || clean == "awesome" || clean == "got it" || clean == "i see") {
-                        return "Awesome! Let me know if there's anything you'd like to ask or explore."
-                    }
-                    return "That's good to know! How can I help you today?"
+                    return "I'm doing well! How's everything going with you?"
                 }
 
-                UserIntent.THANKS -> {
+                UserIntent.CASUAL_STATEMENT -> {
+                    if (clean.contains("fine") || clean.contains("good") || clean.contains("doing well") || clean.contains("great")) {
+                        return "That's great to hear! 😊"
+                    }
+                    if (clean.contains("nothing") || clean.contains("not much")) {
+                        return "Nice 😄 Just relaxing?"
+                    }
+                    return "Got it! Let me know if there's anything you'd like to chat about."
+                }
+
+                UserIntent.THANKING, UserIntent.THANKS -> {
                     return "You're welcome!"
                 }
 
@@ -296,85 +383,86 @@ class AnswerGenerator {
             }
         }
 
-        // ==================================================
-        // 2. NON-CONVERSATIONAL INTENTS (QUESTIONS & EXPLANATIONS)
-        // ==================================================
-
-        // 0. Prioritize manually taught knowledge if present
+        // 2. KNOWLEDGE RETRIEVAL QUESTIONS & EXPLANATIONS
+        // Prioritize manually taught knowledge if present
         val manualTeach = retrieval.matchedAnswers.find { it.isManualTeach }
         if (manualTeach != null) {
             return manualTeach.answerText
         }
 
-        // 1. Reply advice queries (Rule 3, 6, 7)
+        // Reply advice queries (Rule 4, 7, 17)
         if (clean.contains("someone said hello") || clean.contains("someone greeted me with hello")) {
             return "You can reply with 'Hello!', 'Hi!', or 'Hey! How are you?'"
         }
         if (clean.contains("reply to hi") || clean.contains("someone said hi") || clean.contains("someone greeted me") ||
-            clean.contains("what should i say when someone says hi") || clean.contains("how should i reply to hi")) {
+            clean.contains("what should i say when someone says hi") || clean.contains("how should i reply to hi") ||
+            clean.contains("how do i reply to hi")) {
             return "When someone says 'Hi', you can reply with 'Hi!', 'Hello!', or another friendly greeting."
+        }
+        if (clean.contains("reply to hello") || clean.contains("how should i reply to hello") || clean.contains("how do i reply to hello")) {
+            return "When someone says 'Hello', you can reply with 'Hello!', 'Hi!', or 'Hey! How are you?'"
         }
         if (clean.contains("reply") || clean.contains("respond") || clean.contains("what should i say") || clean.contains("what can i say")) {
             return "When someone greets you with 'Hi', you can reply with 'Hi', 'Hello', or another friendly greeting."
         }
 
-        // 2. What does hi mean? (Rule 3)
+        // What does hi mean? (Rule 3)
         if (clean.contains("what does hi mean") || (clean.contains("mean") && clean.contains("hi") && !clean.contains("hello"))) {
             return "'Hi' is a common casual and friendly greeting used when meeting or talking to someone."
         }
 
-        // 3. What does hello mean?
+        // What does hello mean?
         if (clean.contains("what does hello mean") || (clean.contains("mean") && clean.contains("hello") && !clean.contains("hi"))) {
             return "'Hello' is a common greeting used in both casual and more polite situations."
         }
 
-        // 4. Difference between Hi and Hello
+        // Difference between Hi and Hello
         if (clean.contains("difference") || (clean.contains("hi") && clean.contains("hello") && (clean.contains("compare") || clean.contains("casual") || clean.contains("polite")))) {
             return "'Hi' is generally casual and friendly, while 'Hello' can be used in both casual and more polite situations."
         }
 
-        // 5. Tell me about greetings / Educational explanation
+        // Tell me about greetings / Educational explanation
         if (clean.contains("tell me about greetings") || clean.contains("tell me about greeting") || clean.contains("about greetings")) {
             return "Greetings are common expressions like 'Hi' and 'Hello' used when meeting or acknowledging someone. 'Hi' is generally casual and friendly, while 'Hello' can be used in both casual and polite situations. When meeting someone for the first time, people often say 'Nice to meet you.'"
         }
 
-        // 6. First time meeting
+        // First time meeting
         if (clean.contains("first time") || clean.contains("first meeting")) {
             return "When meeting someone for the first time, people may also say 'Nice to meet you.'"
         }
 
-        // 7. Teacher / Elder politeness
+        // Teacher / Elder politeness
         if (clean.contains("teacher") || clean.contains("older person") || clean.contains("elder")) {
             return "While 'Hi' is generally casual and friendly, for a teacher or an older person in a more polite situation, 'Hello' or a polite greeting is typically recommended."
         }
 
-        // 8. Coreference / pronoun explanation query
+        // Coreference query
         if (clean.contains("what does it refer to") || qLower.contains("\"it\" refer to")) {
             val target = retrieval.resolvedContext?.substringAfter("'")?.substringBefore("'") ?: "Hi"
             return "In this context, 'it' refers to '$target' (the greeting discussed in the recent conversation context)."
         }
 
-        // 9. Is hi casual?
+        // Is hi casual?
         if (clean.contains("is hi casual") || (clean.contains("casual") && clean.contains("hi"))) {
             return "Yes, 'Hi' is generally casual and friendly."
         }
 
-        // 10. Another way to greet someone / How to greet
+        // Another way to greet someone / How to greet
         if (clean.contains("another way") || clean.contains("what do people say when they meet") || clean.contains("how do i greet")) {
             return "Common greetings include 'Hi' and 'Hello'. If you are meeting someone for the first time, you can also say 'Nice to meet you.'"
         }
 
-        // 11. Matched answers from learned Q&A
+        // Matched answers from learned Q&A
         retrieval.matchedAnswers.firstOrNull()?.let {
             return it.answerText
         }
 
-        // 12. General fact synthesis
+        // General fact synthesis
         if (retrieval.matchedFacts.isNotEmpty()) {
             return retrieval.matchedFacts.joinToString(" ") { it.statement }
         }
 
-        // 13. Concept definitions
+        // Concept definitions
         if (retrieval.matchedConcepts.isNotEmpty()) {
             return "Based on the stored knowledge: " + retrieval.matchedConcepts.joinToString("; ") { "${it.name}: ${it.definition}" }
         }

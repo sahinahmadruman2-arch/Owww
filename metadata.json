@@ -1,0 +1,6 @@
+{
+  "name": "UrBots7",
+  "description": "AI knowledge-learning system that deeply analyzes books, documents, notes, and taught Q&A into structured reusable knowledge graphs and answers questions semantically.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -164,4 +164,23 @@ interface KnowledgeDao {
 
     @Query("SELECT COUNT(*) FROM relationships")
     fun getRelationshipCount(): Flow<Int>
+
+    // Manual Training Entries
+    @Query("SELECT * FROM manual_training_entries ORDER BY createdAt DESC")
+    fun getAllManualTrainingEntriesFlow(): Flow<List<ManualTrainingEntryEntity>>
+
+    @Query("SELECT * FROM manual_training_entries")
+    suspend fun getAllManualTrainingEntries(): List<ManualTrainingEntryEntity>
+
+    @Query("SELECT COUNT(*) FROM manual_training_entries")
+    fun getManualTrainingCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM manual_training_entries")
+    suspend fun getManualTrainingCountSync(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertManualTrainingEntries(entries: List<ManualTrainingEntryEntity>)
+
+    @Query("DELETE FROM manual_training_entries WHERE id = :id")
+    suspend fun deleteManualTrainingEntryById(id: String)
 }

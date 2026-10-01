@@ -1,20 +1,25 @@
 package com.example.ui.screens.training
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ModelTraining
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -23,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.TrainingRunEntity
 import com.example.domain.model.VerificationTestItem
 import com.example.ui.MainViewModel
+import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,36 +49,46 @@ fun TrainingScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
+        // Header Hero
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+                border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ModelTraining,
-                        contentDescription = null,
-                        modifier = Modifier.size(36.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = ElectricIndigoContainer,
+                        border = BorderStroke(1.dp, ElectricIndigo.copy(alpha = 0.6f)),
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.ModelTraining,
+                                contentDescription = null,
+                                modifier = Modifier.size(26.dp),
+                                tint = ElectricCyanGlow
+                            )
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Knowledge Base & Training Dashboard",
+                            text = "Training & Verification Benchmarks",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                         Text(
                             text = "Persistent structured learning architecture with incremental knowledge versions.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TextSecondary,
+                            lineHeight = 17.sp
                         )
                     }
                 }
@@ -84,55 +100,63 @@ fun TrainingScreen(
             Text(
                 text = "Extracted Knowledge Metrics",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                StatCard(title = "Documents", value = stats.documents.toString(), modifier = Modifier.weight(1f))
-                StatCard(title = "Chunks", value = stats.chunks.toString(), modifier = Modifier.weight(1f))
-                StatCard(title = "Concepts", value = stats.concepts.toString(), modifier = Modifier.weight(1f))
+                StatCard(title = "Documents", value = stats.documents.toString(), accent = ElectricCyan, modifier = Modifier.weight(1f))
+                StatCard(title = "Chunks", value = stats.chunks.toString(), accent = ElectricIndigo, modifier = Modifier.weight(1f))
+                StatCard(title = "Concepts", value = stats.concepts.toString(), accent = ElectricViolet, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                StatCard(title = "Facts", value = stats.facts.toString(), modifier = Modifier.weight(1f))
-                StatCard(title = "Learned Q&As", value = stats.questions.toString(), modifier = Modifier.weight(1f))
-                StatCard(title = "Relationships", value = stats.relationships.toString(), modifier = Modifier.weight(1f))
+                StatCard(title = "Facts", value = stats.facts.toString(), accent = NeonEmerald, modifier = Modifier.weight(1f))
+                StatCard(title = "Learned Q&As", value = stats.questions.toString(), accent = AmberWarning, modifier = Modifier.weight(1f))
+                StatCard(title = "Manual Pairs", value = stats.manualTraining.toString(), accent = ElectricCyanGlow, modifier = Modifier.weight(1f))
             }
         }
 
         // Architecture Pipeline Diagram
         item {
             Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+                border = BorderStroke(1.dp, ObsidianCardBorder),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "System Architecture:",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.AccountTree, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "UrBots7 Neural System Architecture",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
                     Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(8.dp),
+                        color = ObsidianSurface,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, ObsidianCardBorder),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "USER DATA\n   ↓\nKNOWLEDGE ANALYSIS (Concepts, Facts, Graphs)\n   ↓\nSTRUCTURED SHARED KNOWLEDGE (Room Persistence)\n   ↓\nSEMANTIC RETRIEVAL (Multi-Strategy & Anaphora)\n   ↓\nAI ANSWER GENERATION (Grounded Evidence)",
+                            text = "USER QUERY / TRAINING INPUT\n   ↓\nWHOLE-MEANING SEMANTIC PARSER & INTENT CLASSIFIER\n   ↓\nMULTI-STRATEGY RETRIEVAL (Concepts, Facts, Manual Q&A)\n   ↓\nROOM DATABASE PERSISTENT GROUNDING\n   ↓\nEVIDENCE-GROUNDED NATURAL AI SYNTHESIS",
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(10.dp),
-                            lineHeight = 18.sp
+                            fontWeight = FontWeight.SemiBold,
+                            color = ElectricCyan,
+                            modifier = Modifier.padding(12.dp),
+                            lineHeight = 20.sp
                         )
                     }
                 }
@@ -142,22 +166,22 @@ fun TrainingScreen(
         // Verification Suite Section
         item {
             Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-                ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+                border = BorderStroke(1.dp, Brush.linearGradient(AccentGlowGradient)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "System Verification Test Suite",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                     Text(
-                        text = "Execute the 8 official benchmark queries from the specification to verify deep semantic retrieval without simple keyword matching.",
+                        text = "Execute the official benchmark queries to verify deep semantic retrieval, intent prioritization, and knowledge grounding.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextSecondary
                     )
 
                     Button(
@@ -165,20 +189,23 @@ fun TrainingScreen(
                         enabled = !isVerifying,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("run_verification_button")
+                            .height(50.dp)
+                            .testTag("run_verification_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo)
                     ) {
                         if (isVerifying) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Running 8 Verification Queries...")
+                            Text("Running Verification Queries...", color = Color.White)
                         } else {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Icon(Icons.Outlined.PlayArrow, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Run 8-Question Verification Suite")
+                            Text("Run Full Verification Test Suite", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -187,12 +214,33 @@ fun TrainingScreen(
 
         // Verification Results
         if (verificationItems.isNotEmpty()) {
+            val passedCount = verificationItems.count { it.isPassed == true }
             item {
-                Text(
-                    text = "Verification Results (${verificationItems.count { it.isPassed == true }}/${verificationItems.size} Passed):",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Verification Results:",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (passedCount == verificationItems.size) NeonEmeraldContainer else AmberWarning.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, if (passedCount == verificationItems.size) NeonEmerald else AmberWarning)
+                    ) {
+                        Text(
+                            text = "$passedCount/${verificationItems.size} PASSED",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (passedCount == verificationItems.size) NeonEmeraldGlow else AmberWarning,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
             }
 
             items(verificationItems, key = { it.id }) { item ->
@@ -205,7 +253,8 @@ fun TrainingScreen(
             Text(
                 text = "Training & Ingestion History (${trainingRuns.size})",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
         }
 
@@ -216,12 +265,11 @@ fun TrainingScreen(
 }
 
 @Composable
-fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+fun StatCard(title: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+        border = BorderStroke(1.dp, ObsidianCardBorder),
         modifier = modifier
     ) {
         Column(
@@ -231,14 +279,15 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                fontWeight = FontWeight.Black,
+                color = accent
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondary,
+                maxLines = 1
             )
         }
     }
@@ -246,15 +295,16 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun VerificationResultCard(item: VerificationTestItem) {
+    val passed = item.isPassed == true
     Card(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (item.isPassed == true) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            containerColor = ObsidianCard
         ),
+        border = BorderStroke(1.dp, if (passed) NeonEmerald.copy(alpha = 0.5f) else CrimsonError.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -264,31 +314,36 @@ fun VerificationResultCard(item: VerificationTestItem) {
                     text = "${item.id}. ${item.query}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
-                    imageVector = if (item.isPassed == true) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
+                    imageVector = if (passed) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
                     contentDescription = null,
-                    tint = if (item.isPassed == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    tint = if (passed) NeonEmerald else CrimsonError,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
             Text(
-                text = "Answer: ${item.actualAnswer}",
+                text = "Response: ${item.actualAnswer}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = TextSecondary,
+                lineHeight = 17.sp
             )
 
             if (item.sources.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Grounded Sources: ${item.sources.joinToString(", ")}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = ElectricIndigoContainer.copy(alpha = 0.4f)
+                ) {
+                    Text(
+                        text = "Grounded Citations: ${item.sources.joinToString(", ")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ElectricCyan,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
     }
@@ -302,13 +357,12 @@ fun TrainingRunCard(run: TrainingRunEntity) {
     }
 
     Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+        border = BorderStroke(1.dp, ObsidianCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -316,19 +370,28 @@ fun TrainingRunCard(run: TrainingRunEntity) {
             ) {
                 Text(
                     text = run.documentTitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
                 )
-                SuggestionChip(
-                    onClick = {},
-                    label = { Text(run.status, fontSize = 10.sp) }
-                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = NeonEmeraldContainer.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        text = run.status.uppercase(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonEmeraldGlow,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
 
             Text(
                 text = "$dateStr • ${run.summary}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
             )
         }
     }

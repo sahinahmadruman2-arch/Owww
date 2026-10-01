@@ -1,5 +1,6 @@
 package com.example.ui.screens.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,11 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainViewModel
+import com.example.ui.theme.*
 
 @Composable
 fun SettingsScreen(
@@ -31,23 +35,26 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+            containerColor = ObsidianCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = CrimsonError) },
             title = { Text("Clear Conversation?") },
-            text = { Text("This will remove all messages from your chat history.") },
+            text = { Text("This will remove all messages from your chat history in local Room storage.") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.clearChat()
                         showClearDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonError)
                 ) {
-                    Text("Clear All")
+                    Text("Clear All Messages", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = TextSecondary)
                 }
             }
         )
@@ -56,23 +63,27 @@ fun SettingsScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            icon = { Icon(Icons.Outlined.RestartAlt, contentDescription = null) },
-            title = { Text("Reset Sample Knowledge?") },
-            text = { Text("This will re-index the 'Basic Conversation' mini-book into the knowledge graph.") },
+            containerColor = ObsidianCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            icon = { Icon(Icons.Outlined.RestartAlt, contentDescription = null, tint = ElectricCyan) },
+            title = { Text("Re-Index Knowledge Book?") },
+            text = { Text("This will re-index the 'Basic Conversation' mini-book into the persistent knowledge graph.") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.loadSampleBookIntoForm()
                         viewModel.processKnowledgeDocument()
                         showResetDialog = false
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo)
                 ) {
-                    Text("Re-index Book")
+                    Text("Re-Index Book", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = TextSecondary)
                 }
             }
         )
@@ -86,77 +97,99 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(bottom = 4.dp)
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+            border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient)),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Column {
-                Text(
-                    text = "System Settings",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Engine configuration & knowledge store management",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = ElectricIndigoContainer,
+                    border = BorderStroke(1.dp, ElectricIndigo.copy(alpha = 0.6f)),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = null,
+                            tint = ElectricCyanGlow,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = "System Settings & Engine",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Hardware state, persistent Room storage & reasoning options",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
             }
         }
 
         // Engine Status Card
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ),
+            colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+            border = BorderStroke(1.dp, ObsidianCardBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "AI REASONING ARCHITECTURE",
+                    text = "NEURAL REASONING ARCHITECTURE",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = ElectricCyan
                 )
 
                 SettingStatusRow(
                     icon = Icons.Outlined.Psychology,
                     title = "Semantic Intent Engine",
                     subtitle = "16 distinct intent classifications with whole-sentence context",
-                    statusText = "Active"
+                    statusText = "ACTIVE",
+                    statusColor = NeonEmerald
                 )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                HorizontalDivider(color = ObsidianCardBorder)
 
                 SettingStatusRow(
                     icon = Icons.Outlined.Verified,
                     title = "Relevance Validator",
-                    subtitle = "6-point semantic check preventing off-topic answers",
-                    statusText = "Enforced"
+                    subtitle = "6-point semantic check preventing off-topic hallucinated answers",
+                    statusText = "ENFORCED",
+                    statusColor = ElectricCyan
                 )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                HorizontalDivider(color = ObsidianCardBorder)
 
                 SettingStatusRow(
                     icon = Icons.Outlined.Hub,
                     title = "Structured Knowledge Graph",
                     subtitle = "${stats.concepts} concepts • ${stats.facts} facts • ${stats.relationships} relations",
-                    statusText = "Synced"
+                    statusText = "SYNCED",
+                    statusColor = NeonEmerald
+                )
+
+                HorizontalDivider(color = ObsidianCardBorder)
+
+                SettingStatusRow(
+                    icon = Icons.Outlined.Storage,
+                    title = "Manual Q&A Training Vault",
+                    subtitle = "${stats.manualTraining} pairs persistently stored in Room DB",
+                    statusText = "ONLINE",
+                    statusColor = ElectricCyanGlow
                 )
             }
         }
@@ -164,38 +197,44 @@ fun SettingsScreen(
         // Data & Memory Management Card
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ),
+            colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+            border = BorderStroke(1.dp, ObsidianCardBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(
-                    text = "DATA & KNOWLEDGE BASE ACTIONS",
+                    text = "DATA & PERSISTENCE ACTIONS",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = ElectricCyan
                 )
 
                 OutlinedButton(
                     onClick = { showResetDialog = true },
-                    modifier = Modifier.fillMaxWidth().testTag("reset_knowledge_button")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("reset_knowledge_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.RestartAlt, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Re-index Sample Book (Basic Conversation)")
+                    Text("Re-index Sample Book (Basic Conversation)", color = TextPrimary, fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
                     onClick = { showClearDialog = true },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.fillMaxWidth().testTag("clear_conversation_button")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("clear_conversation_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, CrimsonError.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = CrimsonError, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Clear All Chat Conversations")
+                    Text("Clear All Chat Conversations", color = CrimsonError, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -203,28 +242,34 @@ fun SettingsScreen(
         // App Information Card
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            ),
+            colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+            border = BorderStroke(1.dp, ObsidianCardBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Outlined.Info, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = "UrBots7 Deep Semantic Intelligence",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
                 Text(
-                    text = "UrBots7 Deep Semantic System",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Architecture: Understand → Context → Retrieve → Reason → Respond → Validate. Keyword-free conversational understanding prioritizing human-like interaction.",
+                    text = "Architecture: Understand → Context → Retrieve → Reason → Respond → Ground. Complete compliance with whole-meaning speech act processing, manual Q&A batch learning, and local Room persistence.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = TextSecondary,
                     lineHeight = 18.sp
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Platform Build: 2.0.0-semantic • Kotlin Jetpack Compose M3",
+                    text = "Platform Build: 3.0.0-neural • Jetpack Compose M3 Obsidian Theme",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = TextTertiary
                 )
             }
         }
@@ -236,7 +281,8 @@ fun SettingStatusRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String,
-    statusText: String
+    statusText: String,
+    statusColor: Color
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -251,24 +297,26 @@ fun SettingStatusRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = statusColor,
                 modifier = Modifier.size(22.dp)
             )
             Column {
-                Text(text = title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
         }
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+            color = statusColor.copy(alpha = 0.15f),
+            border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
         ) {
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                color = statusColor,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 10.sp,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
             )
         }
     }

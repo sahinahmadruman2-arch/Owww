@@ -5,7 +5,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -22,14 +26,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.local.entity.ConversationMessageEntity
 import com.example.ui.MainViewModel
+import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,13 +61,13 @@ fun ChatScreen(
 
     val quickQuestions = listOf(
         "Hi",
+        "What does \"I'm full\" mean?",
         "I have a problem.",
-        "I need help.",
-        "I'm confused.",
         "My Roblox game isn't working.",
+        "How can I ask for help?",
+        "I can barely keep my eyes open because I'm so tired.",
         "What does hello mean?",
-        "How should I reply to hello?",
-        "Hello"
+        "How should I reply to hello?"
     )
 
     LaunchedEffect(messages.size, isChatLoading) {
@@ -70,9 +79,9 @@ fun ChatScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 14.dp)
     ) {
-        // Top action bar
+        // Top Action & Status Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,38 +89,54 @@ fun ChatScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "UrBots7 Assistant",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Deep semantic understanding & conversational AI",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = ElectricIndigoContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, ElectricIndigo.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            tint = ElectricCyan,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Grounded Semantic Reasoning",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ElectricCyan
+                        )
+                    }
+                }
             }
 
             IconButton(
                 onClick = { viewModel.clearChat() },
-                modifier = Modifier.testTag("clear_chat_button")
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(ObsidianCard)
+                    .testTag("clear_chat_button")
             ) {
                 Icon(
                     imageVector = Icons.Outlined.DeleteOutline,
                     contentDescription = "Clear chat",
-                    tint = MaterialTheme.colorScheme.outline
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
 
-        // Quick Suggestions Row
-        Text(
-            text = "Semantic prompts & scenarios:",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        // Quick Suggestions Horizontal Carousel
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
@@ -119,21 +144,35 @@ fun ChatScreen(
                 .padding(bottom = 8.dp)
         ) {
             items(quickQuestions) { q ->
-                SuggestionChip(
-                    onClick = { viewModel.askPrompt(q) },
-                    label = { Text(q, fontSize = 12.sp) },
-                    icon = {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = ObsidianCard,
+                    border = BorderStroke(1.dp, ObsidianCardBorder.copy(alpha = 0.8f)),
+                    modifier = Modifier.clickable { viewModel.askPrompt(q) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Icon(
-                            Icons.Outlined.Lightbulb,
+                            imageVector = Icons.Outlined.ChatBubbleOutline,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp)
+                            tint = ElectricIndigo,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = q,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextPrimary
                         )
                     }
-                )
+                }
             }
         }
 
-        // Messages List
+        // Messages List Container
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -157,66 +196,49 @@ fun ChatScreen(
 
                     if (isChatLoading) {
                         item {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                                ),
-                                shape = RoundedCornerShape(18.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .padding(vertical = 6.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.5.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Column {
-                                        Text(
-                                            text = "UrBots7 is thinking...",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = chatLoadingStage,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
+                            ThinkingStateIndicator(stage = chatLoadingStage)
                         }
                     }
                 }
             }
         }
 
-        // Input bar
+        // Floating Modern Glass Input Bar
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-            )
+                containerColor = ObsidianCard
+            ),
+            border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Outlined.Psychology,
+                    contentDescription = null,
+                    tint = ElectricCyan,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(20.dp)
+                )
+
                 TextField(
                     value = chatInput,
                     onValueChange = { viewModel.updateChatInput(it) },
-                    placeholder = { Text("Type a message or describe a problem...") },
+                    placeholder = {
+                        Text(
+                            "Type a question, feeling, or manual Q&A pair...",
+                            fontSize = 13.sp,
+                            color = TextSecondary
+                        )
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .testTag("chat_input_field"),
@@ -225,29 +247,92 @@ fun ChatScreen(
                         unfocusedContainerColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
                     ),
-                    maxLines = 3
+                    maxLines = 4
                 )
 
-                IconButton(
-                    onClick = { viewModel.sendChatMessage() },
-                    enabled = chatInput.isNotBlank() && !isChatLoading,
+                if (chatInput.isNotBlank()) {
+                    IconButton(
+                        onClick = { viewModel.updateChatInput("") },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear input",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
+                // Glowing Send Button
+                Box(
                     modifier = Modifier
+                        .size(42.dp)
                         .clip(CircleShape)
                         .background(
-                            if (chatInput.isNotBlank() && !isChatLoading) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant
+                            brush = if (chatInput.isNotBlank() && !isChatLoading)
+                                Brush.linearGradient(UserMessageGradient)
+                            else
+                                Brush.linearGradient(listOf(ObsidianCardBorder, ObsidianCardBorder))
                         )
-                        .testTag("send_chat_button")
+                        .clickable(enabled = chatInput.isNotBlank() && !isChatLoading) {
+                            viewModel.sendChatMessage()
+                        }
+                        .testTag("send_chat_button"),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send Message",
-                        tint = if (chatInput.isNotBlank() && !isChatLoading) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (chatInput.isNotBlank() && !isChatLoading) Color.White else TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ThinkingStateIndicator(stage: String) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = ObsidianCard
+        ),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Brush.linearGradient(AccentGlowGradient)),
+        modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.5.dp,
+                color = ElectricCyan
+            )
+            Column {
+                Text(
+                    text = "UrBots7 Neural Reasoning",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = stage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ElectricCyan,
+                    fontSize = 12.sp
+                )
             }
         }
     }
@@ -258,52 +343,118 @@ fun EmptyChatPlaceholder(onSelectQuery: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
+        // Hero Graphic Card
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient)),
             modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .height(180.dp)
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Psychology,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(40.dp)
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    painter = painterResource(id = R.drawable.img_urbots_hero),
+                    contentDescription = "UrBots7 Hero",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // Gradient Scrim
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    ObsidianBackground.copy(alpha = 0.85f),
+                                    ObsidianBackground
+                                )
+                            )
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "UrBots7 Neural AI",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Multi-Strategy Semantic Intelligence • Local Knowledge Persistence",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ElectricCyan
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        Text(
-            text = "UrBots7 Conversational AI",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        // Core Capabilities Highlight Grid
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CapabilityBadge("Whole Meaning Intent", Icons.Outlined.Psychology, Modifier.weight(1f))
+            CapabilityBadge("Manual Q&A Training", Icons.Outlined.School, Modifier.weight(1f))
+            CapabilityBadge("Zero Hallucinations", Icons.Outlined.Shield, Modifier.weight(1f))
+        }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        Text(
-            text = "Understands whole-sentence intent, holds natural human conversations, provides empathetic problem assistance, and answers questions using structured knowledge.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            lineHeight = 20.sp
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
+        // Sample Query CTA Button (maintains testTag)
         Button(
             onClick = { onSelectQuery("I have a problem.") },
-            modifier = Modifier.testTag("try_sample_query_button")
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .testTag("try_sample_query_button"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ElectricIndigo
+            ),
+            shape = RoundedCornerShape(14.dp)
         ) {
             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Try: 'I have a problem.'")
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Try Benchmark Query: 'I have a problem.'", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CapabilityBadge(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = ObsidianCard,
+        border = BorderStroke(1.dp, ObsidianCardBorder.copy(alpha = 0.6f)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = ElectricCyan,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 1
+            )
         }
     }
 }
@@ -316,7 +467,6 @@ fun ChatMessageItem(
     val isUser = message.role == "user"
     val context = LocalContext.current
     var showSources by remember { mutableStateOf(false) }
-    var showAnalysis by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.createdAt) {
         SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(message.createdAt))
@@ -348,9 +498,7 @@ fun ChatMessageItem(
                 mapOf(
                     "intent" to obj.optString("intent", "GENERAL"),
                     "topic" to obj.optString("topic", "General"),
-                    "detectedMeaning" to obj.optString("detectedMeaning", "User communication"),
-                    "relevantKnowledgeCount" to obj.optInt("relevantKnowledgeCount", 0).toString(),
-                    "confidence" to obj.optString("confidence", "High")
+                    "detectedMeaning" to obj.optString("detectedMeaning", "User communication")
                 )
             } catch (_: Exception) {
                 null
@@ -361,100 +509,230 @@ fun ChatMessageItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 4.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // Message Bubble
-        Card(
-            shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = if (isUser) 18.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 18.dp
-            ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant
-            ),
-            modifier = Modifier.widthIn(max = 330.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = message.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isUser) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 22.sp
-                )
-
-                // Timestamp
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formattedTime,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.End)
-                )
-
-                // Sources Accordion for AI responses
-                if (!isUser && sourcesList.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Knowledge Sources (${sourcesList.size})",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
+        if (isUser) {
+            // USER MESSAGE BUBBLE
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 20.dp,
+                            topEnd = 20.dp,
+                            bottomStart = 20.dp,
+                            bottomEnd = 4.dp
                         )
-                        IconButton(
-                            onClick = { showSources = !showSources },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (showSources) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = "Toggle sources",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                    )
+                    .background(Brush.linearGradient(UserMessageGradient))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Column {
+                    Text(
+                        text = message.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = formattedTime,
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.align(Alignment.End)
+                    )
+                }
+            }
+        } else {
+            // ASSISTANT MESSAGE BUBBLE
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Mini Avatar Badge
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, ElectricCyan, CircleShape)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_urbots_avatar),
+                        contentDescription = "UrBots7",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
-                    AnimatedVisibility(visible = showSources) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(top = 4.dp)
+                // Message Body Card
+                Card(
+                    shape = RoundedCornerShape(
+                        topStart = 4.dp,
+                        topEnd = 20.dp,
+                        bottomStart = 20.dp,
+                        bottomEnd = 20.dp
+                    ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = ObsidianCard
+                    ),
+                    border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient)),
+                    modifier = Modifier.widthIn(max = 330.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        // Header with Intent Tag
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            sourcesList.forEach { (doc, section, statement) ->
+                            Text(
+                                text = "UrBots7",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = ElectricCyan
+                            )
+
+                            analysisData?.get("intent")?.let { intentName ->
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    modifier = Modifier.fillMaxWidth()
+                                    color = ElectricIndigoContainer.copy(alpha = 0.7f)
                                 ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Text(
-                                            text = "• $doc → $section",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        if (statement.isNotBlank()) {
-                                            Text(
-                                                text = "\"$statement\"",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                                fontSize = 11.sp
-                                            )
+                                    Text(
+                                        text = intentName,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ElectricIndigo,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = message.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary,
+                            lineHeight = 22.sp
+                        )
+
+                        // Grounding Citations Accordion
+                        if (sourcesList.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(color = ObsidianCardBorder)
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showSources = !showSources },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.MenuBook,
+                                        contentDescription = null,
+                                        tint = NeonEmerald,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "Grounded Sources (${sourcesList.size})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeonEmerald
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (showSources) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            AnimatedVisibility(visible = showSources) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(top = 6.dp)
+                                ) {
+                                    sourcesList.forEach { (doc, section, statement) ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = ObsidianSurface,
+                                            border = BorderStroke(1.dp, ObsidianCardBorder),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(8.dp)) {
+                                                Text(
+                                                    text = "• $doc → $section",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = ElectricCyan
+                                                )
+                                                if (statement.isNotBlank()) {
+                                                    Text(
+                                                        text = "\"$statement\"",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = TextSecondary,
+                                                        fontSize = 11.sp
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                            }
+                        }
+
+                        // Footer with Timestamp & Action Buttons
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formattedTime,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = TextTertiary
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("UrBots7 Answer", message.message)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "Copied response", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = "Copy message",
+                                        tint = TextTertiary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = onRegenerate,
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Refresh,
+                                        contentDescription = "Regenerate message",
+                                        tint = TextTertiary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -462,112 +740,5 @@ fun ChatMessageItem(
                 }
             }
         }
-
-        // Action bar for Assistant messages (Analysis, Copy, Regenerate)
-        if (!isUser) {
-            Row(
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Section 15: Optional Analysis View Button
-                FilledTonalButton(
-                    onClick = { showAnalysis = !showAnalysis },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(28.dp).testTag("message_analysis_toggle_btn")
-                ) {
-                    Icon(Icons.Outlined.Analytics, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Analysis", fontSize = 11.sp)
-                }
-
-                // Copy button
-                IconButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("UrBots7 Answer", message.message))
-                        Toast.makeText(context, "Copied response to clipboard", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.size(28.dp).testTag("copy_message_btn")
-                ) {
-                    Icon(
-                        Icons.Outlined.ContentCopy,
-                        contentDescription = "Copy message",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Regenerate button
-                IconButton(
-                    onClick = { onRegenerate() },
-                    modifier = Modifier.size(28.dp).testTag("regenerate_message_btn")
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = "Regenerate response",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            // Section 15: Expandable Analysis Metadata Card
-            AnimatedVisibility(visible = showAnalysis) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier
-                        .padding(top = 6.dp)
-                        .widthIn(max = 330.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "SEMANTIC ANALYSIS (METADATA)",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        val intentStr = analysisData?.get("intent") ?: "CONVERSATIONAL"
-                        val topicStr = analysisData?.get("topic") ?: "General"
-                        val meaningStr = analysisData?.get("detectedMeaning") ?: "Natural user conversation"
-                        val countStr = analysisData?.get("relevantKnowledgeCount") ?: "0"
-                        val confStr = analysisData?.get("confidence") ?: "High"
-
-                        AnalysisMetaRow("User Intent:", intentStr)
-                        AnalysisMetaRow("Topic:", topicStr)
-                        AnalysisMetaRow("Detected Meaning:", meaningStr)
-                        AnalysisMetaRow("Relevant Knowledge:", "$countStr items found")
-                        AnalysisMetaRow("Confidence:", confStr)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AnalysisMetaRow(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 11.sp
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 12.sp
-        )
     }
 }

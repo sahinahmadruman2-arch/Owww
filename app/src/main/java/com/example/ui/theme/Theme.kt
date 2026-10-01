@@ -1,40 +1,58 @@
 package com.example.ui.theme
 
-import android.os.Build
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary80,
-    secondary = Secondary80,
-    tertiary = Tertiary80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Primary40,
-    secondary = Secondary40,
-    tertiary = Tertiary40
+    primary = ElectricIndigo,
+    onPrimary = Color.White,
+    primaryContainer = ElectricIndigoContainer,
+    onPrimaryContainer = Color(0xFFC7D2FE),
+    secondary = ElectricCyan,
+    onSecondary = Color.Black,
+    secondaryContainer = ElectricCyanContainer,
+    onSecondaryContainer = Color(0xFFA5F3FC),
+    tertiary = ElectricViolet,
+    onTertiary = Color.White,
+    tertiaryContainer = ElectricVioletContainer,
+    onTertiaryContainer = Color(0xFFDDD6FE),
+    background = ObsidianBackground,
+    onBackground = TextPrimary,
+    surface = ObsidianSurface,
+    onSurface = TextPrimary,
+    surfaceVariant = ObsidianCard,
+    onSurfaceVariant = TextSecondary,
+    outline = ObsidianCardBorder,
+    outlineVariant = Color(0xFF1E293B),
+    error = CrimsonError,
+    onError = Color.White
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme = DarkColorScheme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = ObsidianSurface.toArgb()
+                window.navigationBarColor = ObsidianSurface.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+            }
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
 
     MaterialTheme(

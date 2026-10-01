@@ -361,14 +361,22 @@ object SemanticUnderstandingEngine {
     }
 
     private fun isCasualConversation(clean: String, noApos: String): Boolean {
+        // Questions asking for definitions or instructions are NOT casual chit-chat
+        if (clean.contains("what does") || clean.contains("what do") || clean.contains("what is") ||
+            clean.contains("how should i") || clean.contains("how can i") || clean.contains("how do i")) {
+            return false
+        }
         val phrases = listOf(
             "how are you", "how are you doing", "how's it going", "hows it going",
             "what's up", "whats up", "what are you up to", "what's your name",
             "whats your name", "who are you", "i'm fine", "im fine", "i am fine",
             "i'm good", "im good", "doing well", "nothing much", "not much",
-            "nice to meet you", "pleased to meet you", "just chilling", "all good"
+            "nice to meet you", "pleased to meet you", "just chilling", "all good",
+            "barely keep my eyes open", "so tired", "i'm so tired", "im so tired",
+            "i am so tired", "i feel exhausted", "so sleepy", "falling asleep", "need sleep",
+            "i feel full", "i ate so much", "so full"
         )
-        return phrases.any { clean == it || noApos == it || clean.startsWith("$it ") }
+        return phrases.any { clean == it || noApos == it || clean.contains(it) }
     }
 
     private fun isFarewell(clean: String, noApos: String): Boolean {

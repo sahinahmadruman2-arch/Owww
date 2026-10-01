@@ -139,3 +139,16 @@ data class KnowledgeVersionEntity(
     val relationshipCount: Int = 0,
     val createdAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "manual_training_entries")
+data class ManualTrainingEntryEntity(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val question: String,
+    val answer: String,
+    val sourceSessionOrDoc: String,
+    val semanticKeywords: String = "",
+    val questionType: String = "WHAT",
+    val status: String = "SAVED",
+    val createdAt: Long = System.currentTimeMillis()
+)
+

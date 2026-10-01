@@ -4,8 +4,11 @@ import com.example.data.local.dao.KnowledgeDao
 import com.example.data.local.entity.*
 import com.example.domain.engine.AnswerGenerator
 import com.example.domain.engine.KnowledgePipelineProcessor
+import com.example.domain.engine.ManualTrainingBatchProcessor
+import com.example.domain.engine.ManualTrainingParser
 import com.example.domain.engine.SemanticRetrievalEngine
 import com.example.domain.model.GeneratedAnswerResult
+import com.example.domain.model.ManualTrainingVerificationReport
 import com.example.domain.model.PipelineStageProgress
 import com.example.domain.model.VerificationTestItem
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +22,7 @@ class UrBotsRepository(
     private val retrievalEngine = SemanticRetrievalEngine(dao)
     private val pipelineProcessor = KnowledgePipelineProcessor(dao)
     private val answerGenerator = AnswerGenerator()
+    private val batchProcessor = ManualTrainingBatchProcessor(dao)
 
     val allDocuments: Flow<List<KnowledgeDocumentEntity>> = dao.getAllDocuments()
     val allConcepts: Flow<List<KnowledgeConceptEntity>> = dao.getAllConcepts()
@@ -26,6 +30,7 @@ class UrBotsRepository(
     val allRelationships: Flow<List<KnowledgeRelationshipEntity>> = dao.getAllRelationships()
     val allTrainingRuns: Flow<List<TrainingRunEntity>> = dao.getAllTrainingRuns()
     val allVersions: Flow<List<KnowledgeVersionEntity>> = dao.getAllVersions()
+    val allManualTrainingEntries: Flow<List<ManualTrainingEntryEntity>> = dao.getAllManualTrainingEntriesFlow()
 
     val documentCount: Flow<Int> = dao.getDocumentCount()
     val chunkCount: Flow<Int> = dao.getChunkCount()
@@ -33,6 +38,7 @@ class UrBotsRepository(
     val factCount: Flow<Int> = dao.getFactCount()
     val questionCount: Flow<Int> = dao.getQuestionCount()
     val relationshipCount: Flow<Int> = dao.getRelationshipCount()
+    val manualTrainingCount: Flow<Int> = dao.getManualTrainingCount()
 
     fun getConversationMessages(sessionId: String = "default_session"): Flow<List<ConversationMessageEntity>> {
         return dao.getMessagesForSession(sessionId)
@@ -54,6 +60,21 @@ class UrBotsRepository(
         return pipelineProcessor.processManualTeach(question, answer)
     }
 
+    suspend fun processManualTraining(
+        text: String,
+        sessionTitle: String = "Manual Training Session",
+        batchSize: Int = 25,
+        onProgress: (current: Int, total: Int, stage: String) -> Unit = { _, _, _ -> }
+    ): com.example.domain.model.ManualTrainingVerificationReport {
+        val parseResult = ManualTrainingParser.parse(text)
+        return batchProcessor.processAndStore(
+            parseResult = parseResult,
+            sessionTitle = sessionTitle,
+            batchSize = batchSize,
+            onProgress = onProgress
+        )
+    }
+
     suspend fun askQuestion(
         query: String,
         sessionId: String = "default_session"
@@ -69,6 +90,35 @@ class UrBotsRepository(
             message = query
         )
         dao.insertMessage(userMsg)
+
+        // Check if message is a manual training submission in the Q&A format
+        if (ManualTrainingParser.isManualTrainingFormat(query)) {
+            val parseResult = ManualTrainingParser.parse(query)
+            if (parseResult.pairedEntries.isNotEmpty()) {
+                val report = batchProcessor.processAndStore(
+                    parseResult = parseResult,
+                    sessionTitle = "Chat Training Session"
+                )
+                val reportText = report.toFormattedReport()
+                val assistantMsg = ConversationMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = "assistant",
+                    message = reportText,
+                    analysisMetadataJson = JSONObject().apply {
+                        put("intent", "MANUAL_TRAINING")
+                        put("pairedCount", report.successfullyPairedEntries)
+                        put("savedCount", report.entriesSavedToPersistentStorage)
+                    }.toString()
+                )
+                dao.insertMessage(assistantMsg)
+                return GeneratedAnswerResult(
+                    answerText = reportText,
+                    isSufficient = true,
+                    confidence = 1.0f
+                )
+            }
+        }
 
         // 1. Semantic Retrieval with Intent Detection & Anaphora Resolution
         val retrieval = retrievalEngine.retrieve(query, sessionId, recentMessages)
@@ -286,5 +336,9 @@ class UrBotsRepository(
         }
 
         return results
+    }
+
+    suspend fun deleteManualTrainingEntry(id: String) {
+        dao.deleteManualTrainingEntryById(id)
     }
 }

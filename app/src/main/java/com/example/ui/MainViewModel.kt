@@ -27,7 +27,8 @@ data class DashboardStats(
     val concepts: Int = 0,
     val facts: Int = 0,
     val questions: Int = 0,
-    val relationships: Int = 0
+    val relationships: Int = 0,
+    val manualTraining: Int = 0
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -65,6 +66,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
+    val manualTrainingEntries = repository.allManualTrainingEntries.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
     val dashboardStats = combine(
         listOf(
             repository.documentCount,
@@ -72,7 +77,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.conceptCount,
             repository.factCount,
             repository.questionCount,
-            repository.relationshipCount
+            repository.relationshipCount,
+            repository.manualTrainingCount
         )
     ) { counts ->
         DashboardStats(
@@ -81,7 +87,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             concepts = counts[2],
             facts = counts[3],
             questions = counts[4],
-            relationships = counts[5]
+            relationships = counts[5],
+            manualTraining = counts[6]
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
 
@@ -111,6 +118,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var isTeaching = MutableStateFlow(false)
         private set
     var teachSuccess = MutableStateFlow<String?>(null)
+        private set
+
+    // Batch Manual Training UI state
+    var manualTrainingText = MutableStateFlow("")
+        private set
+    var isBatchTraining = MutableStateFlow(false)
+        private set
+    var batchProgressStatus = MutableStateFlow<String?>(null)
+        private set
+    var batchProgressFraction = MutableStateFlow(0f)
+        private set
+    var manualTrainingReport = MutableStateFlow<com.example.domain.model.ManualTrainingVerificationReport?>(null)
         private set
 
     // Verification testing UI state
@@ -250,9 +269,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         teachSuccess.value = null
     }
 
+    fun updateManualTrainingText(text: String) {
+        manualTrainingText.value = text
+    }
+
+    fun loadSampleBatchTraining() {
+        manualTrainingText.value = """
+            Question: How are you?
+            Answer: I'm doing well, thanks! How are you?
+
+            Question: What does "I'm exhausted" mean?
+            Answer: It means someone is extremely tired.
+
+            Question: How can I ask for help?
+            Answer: You can say, "Could you give me a hand?"
+
+            Question: What does "I'm full" mean?
+            Answer: It means the person has eaten enough and does not want to eat more.
+        """.trimIndent()
+    }
+
+    fun submitManualTrainingBatch(sessionTitle: String = "Manual Training Session") {
+        val text = manualTrainingText.value.trim()
+        if (text.isEmpty() || isBatchTraining.value) return
+
+        isBatchTraining.value = true
+        batchProgressFraction.value = 0f
+        batchProgressStatus.value = "Scanning & pairing Question/Answer entries..."
+        manualTrainingReport.value = null
+
+        viewModelScope.launch {
+            try {
+                val report = repository.processManualTraining(
+                    text = text,
+                    sessionTitle = sessionTitle,
+                    onProgress = { current, total, stage ->
+                        batchProgressStatus.value = stage
+                        batchProgressFraction.value = if (total > 0) current.toFloat() / total.toFloat() else 0f
+                    }
+                )
+                manualTrainingReport.value = report
+                teachSuccess.value = "Manual training complete: ${report.entriesSavedToPersistentStorage} Q&A pairs saved to persistent storage."
+                manualTrainingText.value = ""
+            } finally {
+                isBatchTraining.value = false
+                batchProgressStatus.value = null
+            }
+        }
+    }
+
+    fun dismissManualTrainingReport() {
+        manualTrainingReport.value = null
+    }
+
     fun deleteDocument(id: String) {
         viewModelScope.launch {
             repository.deleteDocument(id)
+        }
+    }
+
+    fun deleteManualTrainingEntry(id: String) {
+        viewModelScope.launch {
+            repository.deleteManualTrainingEntry(id)
         }
     }
 

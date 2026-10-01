@@ -341,6 +341,12 @@ class AnswerGenerator {
                     if (clean.contains("nice to meet you") || clean.contains("pleased to meet you")) {
                         return "Nice to meet you too!"
                     }
+                    if (clean.contains("tired") || clean.contains("exhausted") || clean.contains("eyes open") || clean.contains("sleepy") || clean.contains("falling asleep")) {
+                        return "I'm sorry to hear that you're so exhausted! Please make sure to get some rest and take care of yourself."
+                    }
+                    if (clean.contains("full") && (clean.contains("feel") || clean.contains("ate") || clean.contains("dinner") || clean.contains("food"))) {
+                        return "Sounds like you had a very satisfying meal! Take it easy and relax 😊"
+                    }
                     if (clean.contains("fine") || clean.contains("good") || clean.contains("doing well") || clean.contains("great")) {
                         val lastAssistant = recentMessages.firstOrNull { it.role == "assistant" }?.message?.lowercase(Locale.ROOT)
                         return if (lastAssistant != null && (lastAssistant.contains("how are you") || lastAssistant.contains("what's up"))) {

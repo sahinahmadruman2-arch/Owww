@@ -20,7 +20,10 @@ class SemanticRetrievalEngine(
         "polite" to setOf("polite", "formal", "respectful", "teacher", "elder", "older person", "professional"),
         "difference" to setOf("difference", "compare", "comparison", "contrast", "distinguish", "differ", "vs", "versus"),
         "first_time" to setOf("first time", "first meeting", "meeting someone for the first time", "nice to meet you", "new person"),
-        "meaning" to setOf("meaning", "mean", "definition", "define", "what is", "signify")
+        "meaning" to setOf("meaning", "mean", "definition", "define", "what is", "signify"),
+        "exhausted" to setOf("exhausted", "exhaust", "exhaustion", "tired", "so tired", "barely keep my eyes open", "extremely tired", "fatigued", "drained", "worn out"),
+        "full" to setOf("full", "im full", "i'm full", "eaten enough", "not want to eat more", "stuffed", "satisfied", "food", "eat"),
+        "help" to setOf("help", "ask for help", "give me a hand", "hand", "assist", "assistance", "support")
     )
 
     suspend fun retrieve(
@@ -98,7 +101,24 @@ class SemanticRetrievalEngine(
             }
         }
 
-        val matchedAnswers = matchedQuestionIds.keys.mapNotNull { qId ->
+        // Direct search over manual training entries
+        val manualEntries = dao.getAllManualTrainingEntries()
+        for (manual in manualEntries) {
+            val score = computeSemanticSimilarity(searchTokens, manual.question)
+            if (score > 0.35f) {
+                val matchQ = allQuestions.find { it.question.equals(manual.question, ignoreCase = true) }
+                if (matchQ != null) {
+                    val currentScore = matchedQuestionIds[matchQ.id] ?: 0f
+                    if (score > currentScore) {
+                        matchedQuestionIds[matchQ.id] = score
+                    }
+                }
+            }
+        }
+
+        // Sort descending by relevance score
+        val sortedQIds = matchedQuestionIds.entries.sortedByDescending { it.value }.map { it.key }
+        val matchedAnswers = sortedQIds.mapNotNull { qId ->
             dao.getAnswerForQuestion(qId)
         }
 
@@ -278,6 +298,9 @@ class SemanticRetrievalEngine(
         if (candLower.contains("reply") && (queryTokens.contains("reply") || queryTokens.contains("say"))) boost += 0.2f
         if (candLower.contains("casual") && queryTokens.contains("casual")) boost += 0.2f
         if (candLower.contains("first time") && (queryTokens.contains("first time") || queryTokens.contains("meet"))) boost += 0.2f
+        if ((candLower.contains("exhaust") || candLower.contains("tired")) && (queryTokens.contains("exhaust") || queryTokens.contains("exhausted") || queryTokens.contains("tired"))) boost += 0.35f
+        if (candLower.contains("full") && (queryTokens.contains("full") || queryTokens.contains("eat") || queryTokens.contains("food"))) boost += 0.35f
+        if (candLower.contains("help") && (queryTokens.contains("help") || queryTokens.contains("hand") || queryTokens.contains("assist"))) boost += 0.35f
 
         return (jaccard * 0.8f + boost).coerceIn(0f, 1.0f)
     }

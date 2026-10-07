@@ -183,4 +183,30 @@ interface KnowledgeDao {
 
     @Query("DELETE FROM manual_training_entries WHERE id = :id")
     suspend fun deleteManualTrainingEntryById(id: String)
+
+    // Live Reddit & YouTube Feeds
+    @Query("SELECT * FROM live_feed_entries ORDER BY createdAt DESC")
+    fun getAllLiveFeedEntriesFlow(): Flow<List<LiveFeedEntryEntity>>
+
+    @Query("SELECT * FROM live_feed_entries WHERE sourceType = :type ORDER BY createdAt DESC")
+    fun getLiveFeedEntriesByTypeFlow(type: String): Flow<List<LiveFeedEntryEntity>>
+
+    @Query("SELECT * FROM live_feed_entries WHERE query LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' ORDER BY createdAt DESC")
+    suspend fun searchLiveFeedEntries(query: String): List<LiveFeedEntryEntity>
+
+    @Query("SELECT COUNT(*) FROM live_feed_entries")
+    fun getLiveFeedCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLiveFeedEntries(entries: List<LiveFeedEntryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLiveFeedEntry(entry: LiveFeedEntryEntity)
+
+    @Query("DELETE FROM live_feed_entries WHERE id = :id")
+    suspend fun deleteLiveFeedEntryById(id: String)
+
+    @Query("DELETE FROM live_feed_entries")
+    suspend fun clearAllLiveFeedEntries()
 }
+

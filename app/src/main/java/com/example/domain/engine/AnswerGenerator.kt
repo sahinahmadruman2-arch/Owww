@@ -14,7 +14,8 @@ class AnswerGenerator {
     suspend fun generateAnswer(
         query: String,
         retrieval: RetrievalResult,
-        recentMessages: List<ConversationMessageEntity> = emptyList()
+        recentMessages: List<ConversationMessageEntity> = emptyList(),
+        webResearchResults: List<WebResearchResult> = emptyList()
     ): GeneratedAnswerResult {
         val analysis = retrieval.semanticAnalysis ?: SemanticUnderstandingEngine.analyze(query, recentMessages)
         val intent = analysis.intent
@@ -31,7 +32,7 @@ class AnswerGenerator {
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
                 try {
-                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
+                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey, webResearchResults)
                     if (geminiAnswer.isNotBlank()) {
                         candidateAnswer = geminiAnswer.trim()
                     }
@@ -60,7 +61,7 @@ class AnswerGenerator {
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
                 try {
-                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
+                    val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey, webResearchResults)
                     if (geminiAnswer.isNotBlank()) {
                         candidateAnswer = geminiAnswer.trim()
                     }
@@ -134,6 +135,39 @@ class AnswerGenerator {
                 )
             }
 
+            // If we have live browser research results or Gemini, synthesize a direct research answer!
+            if (webResearchResults.isNotEmpty()) {
+                val synthesizedWebAnswer = synthesizeWebResearchAnswer(query, webResearchResults)
+                var answerWithAi = synthesizedWebAnswer
+
+                val apiKey = BuildConfig.GEMINI_API_KEY
+                if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                    try {
+                        val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey, webResearchResults)
+                        if (geminiAnswer.isNotBlank()) {
+                            answerWithAi = geminiAnswer.trim()
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                return GeneratedAnswerResult(
+                    answerText = answerWithAi,
+                    sources = webResearchResults.map {
+                        com.example.domain.model.SourceCitation(
+                            documentTitle = "${it.engine} (${it.sourceDomain})",
+                            sectionTitle = it.title,
+                            statement = it.snippet,
+                            conceptName = "Live Browser Research"
+                        )
+                    },
+                    resolvedContext = retrieval.resolvedContext,
+                    userIntent = intent,
+                    semanticAnalysis = analysis,
+                    isSufficient = true,
+                    confidence = 0.95f
+                )
+            }
+
             return GeneratedAnswerResult(
                 answerText = "The available knowledge does not contain enough information to answer this question. Please upload relevant documents or teach UrBots7 about this topic.",
                 sources = emptyList(),
@@ -151,7 +185,7 @@ class AnswerGenerator {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
             try {
-                val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey)
+                val geminiAnswer = callGemini(query, retrieval, analysis, recentMessages, apiKey, webResearchResults)
                 if (geminiAnswer.isNotBlank()) {
                     candidateAnswer = geminiAnswer.trim()
                 }
@@ -221,10 +255,11 @@ class AnswerGenerator {
         retrieval: RetrievalResult,
         analysis: MessageSemanticAnalysis,
         recentMessages: List<ConversationMessageEntity>,
-        apiKey: String
+        apiKey: String,
+        webResearchResults: List<WebResearchResult> = emptyList()
     ): String {
         val systemPrompt = """
-            You are UrBots7, a conversational AI with semantic reasoning and knowledge capabilities.
+            You are UrBots7, a conversational AI with real-time research and grounded semantic knowledge capabilities.
 
             Your first responsibility is to understand what the user is trying to DO with their message.
             Never behave like a keyword-matching chatbot. Prioritize whole semantic meaning.
@@ -234,7 +269,10 @@ class AnswerGenerator {
             If the user reports a problem or asks for help, be empathetic and ask what the problem is to help them.
             Only provide definitions, explanations, analysis, or educational information when the user is asking for them or when the context clearly requires them.
 
-            Knowledge retrieval supports your answer, but retrieved knowledge must not override conversational intent.
+            When LIVE BROWSER RESEARCH or KNOWLEDGE EVIDENCE is provided:
+            - Synthesize a comprehensive, direct, and well-structured answer.
+            - Explicitly ground statements in the research findings and cite facts naturally.
+            - Write in a natural, authoritative, human-like voice.
         """.trimIndent()
 
         val promptBuilder = StringBuilder()
@@ -249,9 +287,19 @@ class AnswerGenerator {
             promptBuilder.append("\n")
         }
 
+        // Include Live Web Research if present
+        if (webResearchResults.isNotEmpty()) {
+            promptBuilder.append("LIVE BROWSER RESEARCH RESULTS:\n")
+            webResearchResults.forEach { res ->
+                promptBuilder.append("• Source [${res.engine} - ${res.sourceDomain}]: ${res.title}\n")
+                promptBuilder.append("  Snippet: ${res.snippet}\n")
+                promptBuilder.append("  Link: ${res.url}\n\n")
+            }
+        }
+
         // Only include knowledge evidence if not purely conversational or problem reporting
         if (!analysis.intent.isConversational && !analysis.intent.isHelpOrProblem && retrieval.isSufficient) {
-            promptBuilder.append("KNOWLEDGE EVIDENCE (use this only to support answers when user requests information):\n")
+            promptBuilder.append("LOCAL KNOWLEDGE BASE EVIDENCE:\n")
             retrieval.matchedFacts.forEach { promptBuilder.append("- ").append(it.statement).append("\n") }
             retrieval.matchedConcepts.forEach {
                 promptBuilder.append("- ").append(it.name).append(": ").append(it.definition).append("\n")
@@ -285,6 +333,20 @@ class AnswerGenerator {
 
         val response = GeminiApiClient.service.generateContent(apiKey, request)
         return response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+    }
+
+    private fun synthesizeWebResearchAnswer(
+        query: String,
+        results: List<WebResearchResult>
+    ): String {
+        return buildString {
+            append("Based on live browser research:\n\n")
+            results.forEachIndexed { idx, item ->
+                append("• ${item.snippet.trim()}\n")
+            }
+            append("\nSources researched: ")
+            append(results.joinToString(", ") { "${it.engine} (${it.sourceDomain})" })
+        }
     }
 
     private fun synthesizeLocalAnswer(

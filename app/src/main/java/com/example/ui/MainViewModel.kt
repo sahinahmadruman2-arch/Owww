@@ -13,8 +13,9 @@ import kotlinx.coroutines.launch
 
 enum class UrBotsTab(val title: String) {
     CHAT("Chat"),
-    KNOWLEDGE("Knowledge"),
+    FEEDS("Live Web"),
     TEACH("Teach"),
+    KNOWLEDGE("Knowledge"),
     ANALYSIS("Analyze"),
     LIBRARY("Library"),
     TRAINING("Training"),
@@ -28,7 +29,8 @@ data class DashboardStats(
     val facts: Int = 0,
     val questions: Int = 0,
     val relationships: Int = 0,
-    val manualTraining: Int = 0
+    val manualTraining: Int = 0,
+    val liveFeeds: Int = 0
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,6 +72,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
+    val liveFeeds = repository.allLiveFeeds.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
     val dashboardStats = combine(
         listOf(
             repository.documentCount,
@@ -78,7 +84,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.factCount,
             repository.questionCount,
             repository.relationshipCount,
-            repository.manualTrainingCount
+            repository.manualTrainingCount,
+            repository.liveFeedCount
         )
     ) { counts ->
         DashboardStats(
@@ -88,9 +95,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             facts = counts[3],
             questions = counts[4],
             relationships = counts[5],
-            manualTraining = counts[6]
+            manualTraining = counts[6],
+            liveFeeds = counts[7]
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
+
+    // Live Feeds UI state
+    var liveFeedSearchInput = MutableStateFlow("")
+        private set
+    var isLiveSearching = MutableStateFlow(false)
+        private set
+    var liveSearchStatus = MutableStateFlow<String?>(null)
+        private set
 
     // Chat UI state
     var chatInput = MutableStateFlow("")
@@ -344,6 +360,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 isVerifying.value = false
             }
+        }
+    }
+
+    fun updateLiveFeedSearch(query: String) {
+        liveFeedSearchInput.value = query
+    }
+
+    fun searchLiveWeb(query: String = liveFeedSearchInput.value, subreddit: String? = null) {
+        val q = query.trim()
+        if (q.isBlank() || isLiveSearching.value) return
+        isLiveSearching.value = true
+        liveSearchStatus.value = "Fetching live Reddit discussions & YouTube videos..."
+        viewModelScope.launch {
+            try {
+                repository.searchAndHarvestLiveWeb(q, subreddit = subreddit, autoIngest = true)
+                liveSearchStatus.value = "Autonomous Knowledge Sync Complete: Ingested to Database!"
+            } finally {
+                isLiveSearching.value = false
+            }
+        }
+    }
+
+    fun harvestTrendingTopic(topic: String, subreddit: String? = null) {
+        liveFeedSearchInput.value = topic
+        searchLiveWeb(topic, subreddit)
+    }
+
+    fun deleteLiveFeed(id: String) {
+        viewModelScope.launch {
+            repository.deleteLiveFeed(id)
+        }
+    }
+
+    fun clearLiveFeeds() {
+        viewModelScope.launch {
+            repository.clearLiveFeeds()
         }
     }
 }

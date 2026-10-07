@@ -10,28 +10,28 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = ElectricIndigo,
+private val SpaceDarkColorScheme = darkColorScheme(
+    primary = SupernovaPurple,
     onPrimary = Color.White,
-    primaryContainer = ElectricIndigoContainer,
-    onPrimaryContainer = Color(0xFFC7D2FE),
-    secondary = ElectricCyan,
-    onSecondary = Color.Black,
-    secondaryContainer = ElectricCyanContainer,
-    onSecondaryContainer = Color(0xFFA5F3FC),
-    tertiary = ElectricViolet,
+    primaryContainer = SupernovaPurpleContainer,
+    onPrimaryContainer = Color(0xFFE0E7FF),
+    secondary = CosmicCyan,
+    onSecondary = SpaceVoid,
+    secondaryContainer = CosmicCyanContainer,
+    onSecondaryContainer = Color(0xFFBAE6FD),
+    tertiary = DeepNebulaMagenta,
     onTertiary = Color.White,
-    tertiaryContainer = ElectricVioletContainer,
-    onTertiaryContainer = Color(0xFFDDD6FE),
-    background = ObsidianBackground,
-    onBackground = TextPrimary,
-    surface = ObsidianSurface,
-    onSurface = TextPrimary,
-    surfaceVariant = ObsidianCard,
-    onSurfaceVariant = TextSecondary,
-    outline = ObsidianCardBorder,
-    outlineVariant = Color(0xFF1E293B),
-    error = CrimsonError,
+    tertiaryContainer = DeepNebulaMagentaContainer,
+    onTertiaryContainer = Color(0xFFF3E8FF),
+    background = SpaceBackground,
+    onBackground = StarlightPrimary,
+    surface = SpaceSurface,
+    onSurface = StarlightPrimary,
+    surfaceVariant = SpaceCard,
+    onSurfaceVariant = StarlightSecondary,
+    outline = SpaceCardBorder,
+    outlineVariant = Color(0xFF1E2D4E),
+    error = MarsCrimson,
     onError = Color.White
 )
 
@@ -41,14 +41,14 @@ fun MyApplicationTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = DarkColorScheme
+    val colorScheme = SpaceDarkColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.statusBarColor = ObsidianSurface.toArgb()
-                window.navigationBarColor = ObsidianSurface.toArgb()
+                window.statusBarColor = SpaceSurface.toArgb()
+                window.navigationBarColor = SpaceSurface.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
                 WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
             }

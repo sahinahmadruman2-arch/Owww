@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -35,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.ui.screens.analysis.AnalysisScreen
 import com.example.ui.screens.chat.ChatScreen
+import com.example.ui.screens.feeds.LiveFeedsScreen
 import com.example.ui.screens.knowledge.KnowledgeScreen
 import com.example.ui.screens.library.LibraryScreen
 import com.example.ui.screens.settings.SettingsScreen
@@ -68,19 +68,20 @@ fun UrBotsApp(
     }
 
     val tabItems = listOf(
-        NavTabItem(UrBotsTab.CHAT, "Chat", Icons.Default.ChatBubble, Icons.Outlined.ChatBubbleOutline),
+        NavTabItem(UrBotsTab.CHAT, "Cosmos", Icons.Default.ChatBubble, Icons.Outlined.ChatBubbleOutline),
+        NavTabItem(UrBotsTab.FEEDS, "Live Orbit", Icons.Default.RssFeed, Icons.Outlined.RssFeed, badgeText = if (stats.liveFeeds > 0) "${stats.liveFeeds}" else null),
         NavTabItem(UrBotsTab.TEACH, "Teach", Icons.Default.School, Icons.Outlined.School, badgeText = if (stats.manualTraining > 0) "${stats.manualTraining}" else null),
-        NavTabItem(UrBotsTab.KNOWLEDGE, "Knowledge", Icons.Default.AutoStories, Icons.Outlined.AutoStories, badgeText = if (stats.documents > 0) "${stats.documents}" else null),
-        NavTabItem(UrBotsTab.ANALYSIS, "Analyze", Icons.Default.Hub, Icons.Outlined.Hub),
+        NavTabItem(UrBotsTab.KNOWLEDGE, "Archives", Icons.Default.AutoStories, Icons.Outlined.AutoStories, badgeText = if (stats.documents > 0) "${stats.documents}" else null),
+        NavTabItem(UrBotsTab.ANALYSIS, "Tokens & AST", Icons.Default.Hub, Icons.Outlined.Hub),
         NavTabItem(UrBotsTab.LIBRARY, "Library", Icons.Default.Folder, Icons.Outlined.Folder),
-        NavTabItem(UrBotsTab.TRAINING, "Training", Icons.Default.ModelTraining, Icons.Outlined.ModelTraining),
-        NavTabItem(UrBotsTab.SETTINGS, "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
+        NavTabItem(UrBotsTab.TRAINING, "Neural Lab", Icons.Default.ModelTraining, Icons.Outlined.ModelTraining),
+        NavTabItem(UrBotsTab.SETTINGS, "Station", Icons.Default.Settings, Icons.Outlined.Settings)
     )
 
     Scaffold(
         topBar = {
             Surface(
-                color = ObsidianSurface,
+                color = SpaceSurface,
                 tonalElevation = 8.dp,
                 shadowElevation = 10.dp,
                 border = BorderStroke(1.dp, Brush.horizontalGradient(CardBorderGradientSubtle))
@@ -91,21 +92,21 @@ fun UrBotsApp(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Glowing AI Avatar Core
+                            // Glowing Space Astronaut Avatar Core
                             Box(
                                 modifier = Modifier
                                     .size(42.dp)
                                     .clip(CircleShape)
                                     .border(
                                         width = 2.dp,
-                                        brush = Brush.sweepGradient(AccentGlowGradient),
+                                        brush = Brush.sweepGradient(StarlightGlowGradient),
                                         shape = CircleShape
                                     )
                                     .shadow(elevation = 8.dp, shape = CircleShape)
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.img_urbots_avatar),
-                                    contentDescription = "UrBots7 Avatar",
+                                    painter = painterResource(id = R.drawable.img_space_ai_avatar),
+                                    contentDescription = "UrBots7 Space AI",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
@@ -120,14 +121,14 @@ fun UrBotsApp(
                                         text = "UrBots7",
                                         fontWeight = FontWeight.ExtraBold,
                                         style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimary,
+                                        color = StarlightPrimary,
                                         letterSpacing = 0.5.sp
                                     )
-                                    // High-Tech Active Status Pill
+                                    // Deep Space Active Status Pill
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
-                                        color = NeonEmeraldContainer.copy(alpha = 0.85f),
-                                        border = BorderStroke(1.dp, NeonEmerald.copy(alpha = 0.6f))
+                                        color = OrbitEmeraldContainer.copy(alpha = 0.85f),
+                                        border = BorderStroke(1.dp, OrbitEmerald.copy(alpha = 0.6f))
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
@@ -138,13 +139,13 @@ fun UrBotsApp(
                                                 modifier = Modifier
                                                     .size(6.dp)
                                                     .clip(CircleShape)
-                                                    .background(NeonEmerald)
+                                                    .background(OrbitEmerald)
                                             )
                                             Text(
-                                                text = "ONLINE",
+                                                text = "ORBIT ONLINE",
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Black,
-                                                color = NeonEmeraldGlow,
+                                                color = OrbitEmeraldGlow,
                                                 letterSpacing = 0.5.sp
                                             )
                                         }
@@ -152,26 +153,26 @@ fun UrBotsApp(
                                 }
 
                                 Text(
-                                    text = "Neural Knowledge & Grounded Answering • v$latestVersion",
+                                    text = "Space AI • Live Browser Research • Words [A=1] • v$latestVersion",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = TextSecondary
+                                    color = StarlightSecondary
                                 )
                             }
                         }
                     },
                     actions = {
-                        // Current Screen Badge
+                        // Current Station Module Badge
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = ElectricIndigoContainer.copy(alpha = 0.7f),
-                            border = BorderStroke(1.dp, ElectricIndigo.copy(alpha = 0.5f)),
+                            color = SupernovaPurpleContainer.copy(alpha = 0.7f),
+                            border = BorderStroke(1.dp, SupernovaPurple.copy(alpha = 0.5f)),
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
                             Text(
                                 text = currentTab.title.uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Black,
-                                color = ElectricCyanGlow,
+                                color = CosmicCyanGlow,
                                 letterSpacing = 0.5.sp,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
@@ -184,19 +185,18 @@ fun UrBotsApp(
             }
         },
         bottomBar = {
-            // High-Tech Navigation Dock
+            // High-Tech Deep Space Dock
             Surface(
-                color = ObsidianSurface,
+                color = SpaceSurface,
                 tonalElevation = 10.dp,
                 shadowElevation = 16.dp,
-                border = BorderStroke(1.dp, Brush.horizontalGradient(listOf(ObsidianCardBorder, ElectricIndigo.copy(alpha = 0.3f), ObsidianCardBorder)))
+                border = BorderStroke(1.dp, Brush.horizontalGradient(listOf(SpaceCardBorder, SupernovaPurple.copy(alpha = 0.3f), SpaceCardBorder)))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
                 ) {
-                    // Smooth Horizontal Dock that elegantly accommodates all 7 modules without crowding
                     val navScrollState = rememberScrollState()
                     Row(
                         modifier = Modifier
@@ -209,12 +209,11 @@ fun UrBotsApp(
                     ) {
                         tabItems.forEach { item ->
                             val isSelected = currentTab == item.tab
-                            val activeBrush = Brush.horizontalGradient(UserMessageGradient)
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = if (isSelected) ElectricIndigoContainer.copy(alpha = 0.9f) else Color.Transparent,
-                                border = if (isSelected) BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.8f)) else null,
+                                color = if (isSelected) SupernovaPurpleContainer.copy(alpha = 0.9f) else Color.Transparent,
+                                border = if (isSelected) BorderStroke(1.dp, CosmicCyan.copy(alpha = 0.8f)) else null,
                                 modifier = Modifier
                                     .padding(horizontal = 3.dp)
                                     .clip(RoundedCornerShape(16.dp))
@@ -232,7 +231,7 @@ fun UrBotsApp(
                                         badge = {
                                             if (item.badgeText != null) {
                                                 Badge(
-                                                    containerColor = if (isSelected) NeonEmerald else ElectricIndigo,
+                                                    containerColor = if (isSelected) OrbitEmerald else SupernovaPurple,
                                                     contentColor = Color.White
                                                 ) {
                                                     Text(text = item.badgeText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -243,7 +242,7 @@ fun UrBotsApp(
                                         Icon(
                                             imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                                             contentDescription = item.title,
-                                            tint = if (isSelected) ElectricCyanGlow else TextSecondary,
+                                            tint = if (isSelected) CosmicCyanGlow else StarlightSecondary,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -258,7 +257,7 @@ fun UrBotsApp(
                                             maxLines = 1,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
+                                            color = StarlightPrimary
                                         )
                                     }
                                 }
@@ -273,18 +272,12 @@ fun UrBotsApp(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            ObsidianBackground,
-                            ObsidianDeep
-                        )
-                    )
-                )
+                .background(Brush.verticalGradient(SpaceNebulaGradient))
                 .padding(innerPadding)
         ) {
             when (currentTab) {
                 UrBotsTab.CHAT -> ChatScreen(viewModel = viewModel)
+                UrBotsTab.FEEDS -> LiveFeedsScreen(viewModel = viewModel)
                 UrBotsTab.TEACH -> TeachScreen(viewModel = viewModel)
                 UrBotsTab.KNOWLEDGE -> KnowledgeScreen(viewModel = viewModel)
                 UrBotsTab.ANALYSIS -> AnalysisScreen(viewModel = viewModel)

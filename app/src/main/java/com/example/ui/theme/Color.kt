@@ -2,42 +2,84 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Obsidian & Cyber Neon Palette for UrBots7
-val ObsidianDeep = Color(0xFF070A12)
-val ObsidianBackground = Color(0xFF090D16)
-val ObsidianSurface = Color(0xFF0F172A)
-val ObsidianCard = Color(0xFF151E34)
-val ObsidianCardBorder = Color(0xFF243250)
-val ObsidianCardBorderGlow = Color(0xFF3B82F6)
+// ==========================================
+// Deep Space & Celestial Nebula Palette
+// ==========================================
 
-// Vibrant Neon Accents
-val ElectricIndigo = Color(0xFF6366F1)
-val ElectricIndigoContainer = Color(0xFF1E2248)
-val ElectricCyan = Color(0xFF06B6D4)
-val ElectricCyanGlow = Color(0xFF00F2FE)
-val ElectricCyanContainer = Color(0xFF083344)
-val ElectricViolet = Color(0xFF8B5CF6)
-val ElectricVioletContainer = Color(0xFF2E1A47)
+// Deep Space Void & Starlight Backdrops
+val SpaceVoid = Color(0xFF030712)         // Deepest interstellar black
+val SpaceBackground = Color(0xFF080D1A)   // Galactic dark navy
+val SpaceSurface = Color(0xFF0F172A)      // Deep shuttle surface
+val SpaceCard = Color(0xFF131D36)         // Nebula observation bay card
+val SpaceCardBorder = Color(0xFF1E2D4E)   // Constellation grid border
+val SpaceCardBorderGlow = Color(0xFF38BDF8)
 
-val NeonEmerald = Color(0xFF10B981)
-val NeonEmeraldGlow = Color(0xFF34D399)
-val NeonEmeraldContainer = Color(0xFF064E3B)
-val AmberWarning = Color(0xFFF59E0B)
-val CrimsonError = Color(0xFFEF4444)
-val SunsetRose = Color(0xFFF43F5E)
+// Cosmic Starlight Accents
+val CosmicCyan = Color(0xFF38BDF8)        // Stellar accretion disk cyan
+val CosmicCyanGlow = Color(0xFF7DD3FC)
+val CosmicCyanContainer = Color(0xFF0C2B47)
 
-// Crisp Typography Colors
-val TextPrimary = Color(0xFFF8FAFC)
-val TextSecondary = Color(0xFF94A3B8)
-val TextTertiary = Color(0xFF64748B)
+val SupernovaPurple = Color(0xFF818CF8)   // Pulsar purple / violet
+val SupernovaPurpleContainer = Color(0xFF231F4D)
 
-// Gradients for High-End Glassmorphism
-val UserMessageGradient = listOf(Color(0xFF4F46E5), Color(0xFF06B6D4))
-val AssistantMessageGradient = listOf(Color(0xFF151E34), Color(0xFF0E1626))
-val HeroCardGradient = listOf(Color(0xFF1E1B4B), Color(0xFF0E2A47), Color(0xFF090D16))
-val AccentGlowGradient = listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4))
-val EmeraldGlowGradient = listOf(Color(0xFF10B981), Color(0xFF06B6D4))
-val CardBorderGradient = listOf(Color(0xFF38BDF8).copy(alpha = 0.5f), Color(0xFF818CF8).copy(alpha = 0.2f))
-val CardBorderGradientSubtle = listOf(Color(0xFF6366F1).copy(alpha = 0.3f), Color(0xFF06B6D4).copy(alpha = 0.1f))
-val CyberGlowGradient = listOf(Color(0xFF00F2FE), Color(0xFF4FACFE))
-val GoldBadgeGradient = listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+val DeepNebulaMagenta = Color(0xFFA855F7) // Nebula dust magenta
+val DeepNebulaMagentaContainer = Color(0xFF3B1D54)
+
+val OrbitEmerald = Color(0xFF10B981)      // Bio-station green / online beacon
+val OrbitEmeraldGlow = Color(0xFF34D399)
+val OrbitEmeraldContainer = Color(0xFF064E3B)
+
+val SolarFlareGold = Color(0xFFFBBF24)    // Solar flare gold / token number highlight
+val SolarFlareContainer = Color(0xFF452B04)
+
+val MarsCrimson = Color(0xFFF43F5E)       // Solar storm alert
+val NovaPink = Color(0xFFEC4899)          // Quasar pink
+
+// Space Typography
+val StarlightPrimary = Color(0xFFF8FAFC)  // Crisp star white
+val StarlightSecondary = Color(0xFF94A3B8)// Lunar gray
+val StarlightTertiary = Color(0xFF64748B) // Deep orbit dust gray
+
+// External Research Sources
+val WebBrowserBlue = Color(0xFF38BDF8)
+val RedditOrange = Color(0xFFFF5722)
+val YouTubeRed = Color(0xFFFF1744)
+val WikiGray = Color(0xFF94A3B8)
+
+// Compatibility Aliases for legacy screens
+val ObsidianDeep = SpaceVoid
+val ObsidianBackground = SpaceBackground
+val ObsidianSurface = SpaceSurface
+val ObsidianCard = SpaceCard
+val ObsidianCardBorder = SpaceCardBorder
+val ObsidianCardBorderGlow = SpaceCardBorderGlow
+val ElectricIndigo = SupernovaPurple
+val ElectricIndigoContainer = SupernovaPurpleContainer
+val ElectricCyan = CosmicCyan
+val ElectricCyanGlow = CosmicCyanGlow
+val ElectricCyanContainer = CosmicCyanContainer
+val ElectricViolet = DeepNebulaMagenta
+val ElectricVioletContainer = DeepNebulaMagentaContainer
+val NeonEmerald = OrbitEmerald
+val NeonEmeraldGlow = OrbitEmeraldGlow
+val NeonEmeraldContainer = OrbitEmeraldContainer
+val AmberWarning = SolarFlareGold
+val CrimsonError = MarsCrimson
+val SunsetRose = NovaPink
+val TextPrimary = StarlightPrimary
+val TextSecondary = StarlightSecondary
+val TextTertiary = StarlightTertiary
+
+// Space Celestial Gradients
+val SpaceNebulaGradient = listOf(Color(0xFF030712), Color(0xFF0B132B), Color(0xFF1C1A44))
+val StarlightGlowGradient = listOf(CosmicCyan, SupernovaPurple, DeepNebulaMagenta)
+val UserMessageGradient = listOf(Color(0xFF4338CA), Color(0xFF0284C7))
+val AssistantMessageGradient = listOf(Color(0xFF131D36), Color(0xFF0F172A))
+val HeroCardGradient = listOf(Color(0xFF1E1B4B), Color(0xFF0C2442), Color(0xFF080D1A))
+val AccentGlowGradient = listOf(DeepNebulaMagenta, CosmicCyan)
+val EmeraldGlowGradient = listOf(OrbitEmerald, CosmicCyan)
+val CardBorderGradient = listOf(CosmicCyan.copy(alpha = 0.5f), SupernovaPurple.copy(alpha = 0.25f))
+val CardBorderGradientSubtle = listOf(SupernovaPurple.copy(alpha = 0.3f), CosmicCyan.copy(alpha = 0.15f))
+val CyberGlowGradient = listOf(CosmicCyan, SupernovaPurple)
+val GoldBadgeGradient = listOf(SolarFlareGold, Color(0xFFD97706))
+val TokenRankGradient = listOf(SolarFlareGold, CosmicCyan)

@@ -2,7 +2,14 @@ package com.example.data.repository
 
 import com.example.data.local.dao.KnowledgeDao
 import com.example.data.local.entity.*
+import com.example.data.remote.RedditLiveClient
+import com.example.data.remote.RedditPostItem
+import com.example.data.remote.WebResearchClient
+import com.example.data.remote.WebResearchResult
+import com.example.data.remote.YouTubeLiveClient
+import com.example.data.remote.YouTubeVideoItem
 import com.example.domain.engine.AnswerGenerator
+import com.example.domain.engine.DeepSemanticAnalyzer
 import com.example.domain.engine.KnowledgePipelineProcessor
 import com.example.domain.engine.ManualTrainingBatchProcessor
 import com.example.domain.engine.ManualTrainingParser
@@ -31,6 +38,7 @@ class UrBotsRepository(
     val allTrainingRuns: Flow<List<TrainingRunEntity>> = dao.getAllTrainingRuns()
     val allVersions: Flow<List<KnowledgeVersionEntity>> = dao.getAllVersions()
     val allManualTrainingEntries: Flow<List<ManualTrainingEntryEntity>> = dao.getAllManualTrainingEntriesFlow()
+    val allLiveFeeds: Flow<List<LiveFeedEntryEntity>> = dao.getAllLiveFeedEntriesFlow()
 
     val documentCount: Flow<Int> = dao.getDocumentCount()
     val chunkCount: Flow<Int> = dao.getChunkCount()
@@ -39,6 +47,7 @@ class UrBotsRepository(
     val questionCount: Flow<Int> = dao.getQuestionCount()
     val relationshipCount: Flow<Int> = dao.getRelationshipCount()
     val manualTrainingCount: Flow<Int> = dao.getManualTrainingCount()
+    val liveFeedCount: Flow<Int> = dao.getLiveFeedCount()
 
     fun getConversationMessages(sessionId: String = "default_session"): Flow<List<ConversationMessageEntity>> {
         return dao.getMessagesForSession(sessionId)
@@ -123,10 +132,96 @@ class UrBotsRepository(
         // 1. Semantic Retrieval with Intent Detection & Anaphora Resolution
         val retrieval = retrievalEngine.retrieve(query, sessionId, recentMessages)
 
-        // 2. Answer Generation & Evidence Grounding
-        val result = answerGenerator.generateAnswer(query, retrieval, recentMessages)
+        // 1.5 Real-Time Browser Research if eligible (Knowledge query or live query)
+        val isEligibleForLiveWeb = !retrieval.userIntent.isConversational && !retrieval.userIntent.isHelpOrProblem
+        val webResearchList = mutableListOf<WebResearchResult>()
+        val liveCitations = mutableListOf<JSONObject>()
 
-        // 3. Convert citations to JSON (citations only apply to knowledge retrieval)
+        if (isEligibleForLiveWeb) {
+            try {
+                val liveWebResults = WebResearchClient.conductLiveResearch(query, maxResults = 3)
+                webResearchList.addAll(liveWebResults)
+                for (item in liveWebResults) {
+                    liveCitations.add(JSONObject().apply {
+                        put("documentTitle", "${item.engine} [${item.sourceDomain}]")
+                        put("sectionTitle", item.title)
+                        put("statement", item.snippet)
+                        put("conceptName", "Live Browser Research")
+                    })
+                }
+            } catch (_: Exception) {}
+
+            try {
+                val redditResults = RedditLiveClient.searchDiscussions(query, limit = 2)
+                for (p in redditResults) {
+                    val analysis = DeepSemanticAnalyzer.analyzeContent(p.selftext, p.title)
+                    val entity = LiveFeedEntryEntity(
+                        id = "reddit_${p.id}",
+                        sourceType = "REDDIT",
+                        query = query,
+                        title = p.title,
+                        content = p.selftext.ifBlank { "Discussion in r/${p.subreddit}" },
+                        authorOrChannel = "r/${p.subreddit} • u/${p.author}",
+                        url = p.fullUrl,
+                        thumbnailUrl = p.thumbnailUrl,
+                        metricText = "${p.score} upvotes • ${p.numComments} comments",
+                        sentiment = analysis.sentiment,
+                        credibilityScore = analysis.credibilityScore,
+                        keyConcepts = analysis.extractedConcepts.joinToString { it.first },
+                        isAutoIngested = true
+                    )
+                    dao.insertLiveFeedEntry(entity)
+                    DeepSemanticAnalyzer.autoIngestRedditToKnowledgeBase(dao, p)
+
+                    liveCitations.add(JSONObject().apply {
+                        put("documentTitle", "Reddit [r/${p.subreddit}]")
+                        put("sectionTitle", "u/${p.author} • ${p.score} upvotes")
+                        put("statement", p.title)
+                        put("conceptName", "Community Post")
+                    })
+                }
+
+                val ytResults = YouTubeLiveClient.searchVideos(query, limit = 1)
+                for (v in ytResults) {
+                    val analysis = DeepSemanticAnalyzer.analyzeContent(v.description, v.title)
+                    val entity = LiveFeedEntryEntity(
+                        id = "yt_${v.videoId}",
+                        sourceType = "YOUTUBE",
+                        query = query,
+                        title = v.title,
+                        content = v.description.ifBlank { "Video explanation by ${v.channelTitle}" },
+                        authorOrChannel = v.channelTitle,
+                        url = v.videoUrl,
+                        thumbnailUrl = v.thumbnailUrl,
+                        metricText = v.viewCountText,
+                        sentiment = analysis.sentiment,
+                        credibilityScore = analysis.credibilityScore,
+                        keyConcepts = analysis.extractedConcepts.joinToString { it.first },
+                        isAutoIngested = true
+                    )
+                    dao.insertLiveFeedEntry(entity)
+                    DeepSemanticAnalyzer.autoIngestYouTubeToKnowledgeBase(dao, v)
+
+                    liveCitations.add(JSONObject().apply {
+                        put("documentTitle", "YouTube [${v.channelTitle}]")
+                        put("sectionTitle", v.viewCountText)
+                        put("statement", v.title)
+                        put("conceptName", "Video Explanation")
+                    })
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 2. Answer Generation & Evidence Grounding with live web research results
+        val result = answerGenerator.generateAnswer(
+            query = query,
+            retrieval = retrieval,
+            recentMessages = recentMessages,
+            webResearchResults = webResearchList
+        )
+        val finalAnswer = result.answerText
+
+        // 3. Convert citations to JSON (citations only apply to knowledge retrieval or live web)
         val citationsJson = if (retrieval.userIntent.isConversational || retrieval.userIntent.isHelpOrProblem) {
             "[]"
         } else {
@@ -139,6 +234,7 @@ class UrBotsRepository(
                         put("conceptName", src.conceptName ?: "")
                     })
                 }
+                liveCitations.forEach { put(it) }
             }.toString()
         }
 
@@ -147,9 +243,10 @@ class UrBotsRepository(
             put("intent", sem?.intent?.name ?: result.userIntent?.name ?: "GENERAL")
             put("topic", sem?.topic ?: "General")
             put("detectedMeaning", sem?.detectedMeaning ?: "User communication")
-            put("relevantKnowledgeCount", result.sources.size)
+            put("relevantKnowledgeCount", result.sources.size + liveCitations.size)
             put("confidence", sem?.confidence ?: "High")
             put("speechAct", sem?.speechAct ?: "statement")
+            put("liveSourcesCount", liveCitations.size)
         }.toString()
 
         // 4. Record assistant message
@@ -157,7 +254,7 @@ class UrBotsRepository(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = "assistant",
-            message = result.answerText,
+            message = finalAnswer,
             usedSourcesJson = citationsJson,
             resolvedContext = result.resolvedContext,
             analysisMetadataJson = analysisJson
@@ -341,4 +438,80 @@ class UrBotsRepository(
     suspend fun deleteManualTrainingEntry(id: String) {
         dao.deleteManualTrainingEntryById(id)
     }
+
+    suspend fun searchAndHarvestLiveWeb(
+        query: String,
+        subreddit: String? = null,
+        autoIngest: Boolean = true
+    ): List<LiveFeedEntryEntity> {
+        val redditPosts = try {
+            RedditLiveClient.searchDiscussions(query, subreddit = subreddit, limit = 5)
+        } catch (_: Exception) { emptyList() }
+
+        val ytVideos = try {
+            YouTubeLiveClient.searchVideos(query, limit = 4)
+        } catch (_: Exception) { emptyList() }
+
+        val results = mutableListOf<LiveFeedEntryEntity>()
+
+        for (p in redditPosts) {
+            val analysis = DeepSemanticAnalyzer.analyzeContent(p.selftext, p.title)
+            val entity = LiveFeedEntryEntity(
+                id = "reddit_${p.id}",
+                sourceType = "REDDIT",
+                query = query,
+                title = p.title,
+                content = p.selftext.ifBlank { "Live discussion from r/${p.subreddit}" },
+                authorOrChannel = "r/${p.subreddit} • u/${p.author}",
+                url = p.fullUrl,
+                thumbnailUrl = p.thumbnailUrl,
+                metricText = "${p.score} upvotes • ${p.numComments} comments",
+                sentiment = analysis.sentiment,
+                credibilityScore = analysis.credibilityScore,
+                keyConcepts = analysis.extractedConcepts.joinToString { it.first },
+                isAutoIngested = autoIngest
+            )
+            results.add(entity)
+            if (autoIngest) {
+                try { DeepSemanticAnalyzer.autoIngestRedditToKnowledgeBase(dao, p) } catch (_: Exception) {}
+            }
+        }
+
+        for (v in ytVideos) {
+            val analysis = DeepSemanticAnalyzer.analyzeContent(v.description, v.title)
+            val entity = LiveFeedEntryEntity(
+                id = "yt_${v.videoId}",
+                sourceType = "YOUTUBE",
+                query = query,
+                title = v.title,
+                content = v.description.ifBlank { "YouTube video by ${v.channelTitle}" },
+                authorOrChannel = v.channelTitle,
+                url = v.videoUrl,
+                thumbnailUrl = v.thumbnailUrl,
+                metricText = v.viewCountText,
+                sentiment = analysis.sentiment,
+                credibilityScore = analysis.credibilityScore,
+                keyConcepts = analysis.extractedConcepts.joinToString { it.first },
+                isAutoIngested = autoIngest
+            )
+            results.add(entity)
+            if (autoIngest) {
+                try { DeepSemanticAnalyzer.autoIngestYouTubeToKnowledgeBase(dao, v) } catch (_: Exception) {}
+            }
+        }
+
+        if (results.isNotEmpty()) {
+            dao.insertLiveFeedEntries(results)
+        }
+        return results
+    }
+
+    suspend fun deleteLiveFeed(id: String) {
+        dao.deleteLiveFeedEntryById(id)
+    }
+
+    suspend fun clearLiveFeeds() {
+        dao.clearAllLiveFeedEntries()
+    }
 }
+

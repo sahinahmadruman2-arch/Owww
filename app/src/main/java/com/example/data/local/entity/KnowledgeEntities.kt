@@ -152,3 +152,22 @@ data class ManualTrainingEntryEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "live_feed_entries")
+data class LiveFeedEntryEntity(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val sourceType: String, // "REDDIT" or "YOUTUBE"
+    val query: String,
+    val title: String,
+    val content: String,
+    val authorOrChannel: String,
+    val url: String,
+    val thumbnailUrl: String? = null,
+    val metricText: String = "", // e.g. "2.4k upvotes • 180 comments" or "500K views"
+    val sentiment: String = "NEUTRAL", // POSITIVE, NEUTRAL, CRITICAL, ENTHUSIASTIC
+    val credibilityScore: Int = 88,
+    val keyConcepts: String = "",
+    val isAutoIngested: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+

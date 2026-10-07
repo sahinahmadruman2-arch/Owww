@@ -20,9 +20,10 @@ import com.example.data.local.entity.*
         ConversationMessageEntity::class,
         TrainingRunEntity::class,
         KnowledgeVersionEntity::class,
-        ManualTrainingEntryEntity::class
+        ManualTrainingEntryEntity::class,
+        LiveFeedEntryEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class UrBotsDatabase : RoomDatabase() {

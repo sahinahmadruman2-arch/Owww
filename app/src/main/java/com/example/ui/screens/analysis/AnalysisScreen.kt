@@ -1,7 +1,10 @@
 package com.example.ui.screens.analysis
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -25,19 +29,23 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.KnowledgeConceptEntity
 import com.example.data.local.entity.KnowledgeFactEntity
 import com.example.data.local.entity.KnowledgeRelationshipEntity
+import com.example.domain.ai.TokenAnalysisInfo
+import com.example.domain.ai.TokenizerInspector
 import com.example.ui.DashboardStats
 import com.example.ui.MainViewModel
+import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 enum class AnalysisFilter(val label: String) {
-    ALL("All"),
+    ALL("Cosmic Overview"),
+    TOKEN_LOGITS("Word Tokens (A=1)"),
     TREE("Visual Tree"),
     CONCEPTS("Concepts"),
     FACTS("Facts"),
     RELATIONSHIPS("Relationships"),
-    VARIATIONS("Question Variations"),
+    VARIATIONS("Variations"),
     CONFLICTS("Conflicts")
 }
 
@@ -60,12 +68,18 @@ fun AnalysisScreen(
         else "Recently"
     }
 
+    // Interactive Token Test State
+    var sampleSentence by remember { mutableStateOf("AI models predict next words with probability numbers") }
+    val tokenInfo = remember(sampleSentence) {
+        TokenizerInspector.analyzeText(sampleSentence)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Header
+        // Space Analysis Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -73,22 +87,32 @@ fun AnalysisScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Hub,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            )
+            Surface(
+                shape = CircleShape,
+                color = SpaceCard,
+                border = BorderStroke(1.dp, CosmicCyan),
+                modifier = Modifier.size(38.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Hub,
+                        contentDescription = null,
+                        tint = CosmicCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             Column {
                 Text(
-                    text = "Knowledge Analysis Dashboard",
+                    text = "Astrophysical Knowledge & Tokens",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = StarlightPrimary
                 )
                 Text(
-                    text = "Structured semantic graph & deep document reasoning",
+                    text = "Semantic graph, token probability numbers (A=1), & grounded AST",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = StarlightSecondary
                 )
             }
         }
@@ -104,23 +128,47 @@ fun AnalysisScreen(
                 FilterChip(
                     selected = selectedFilter == filter,
                     onClick = { selectedFilter = filter },
-                    label = { Text(filter.label) }
+                    label = { Text(filter.label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SupernovaPurpleContainer,
+                        selectedLabelColor = CosmicCyanGlow,
+                        containerColor = SpaceCard,
+                        labelColor = StarlightSecondary
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedFilter == filter) CosmicCyan else SpaceCardBorder
+                    )
                 )
             }
         }
 
         // List & Dashboard
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            // Dashboard Metrics Overview Card (Section 10)
+            // Interactive Token Probabilities & Alphabetical Codes Feature Card (A=1)
+            if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.TOKEN_LOGITS) {
+                item {
+                    TokenLogitsInteractiveCard(
+                        sampleSentence = sampleSentence,
+                        tokenInfo = tokenInfo,
+                        onSentenceChange = { sampleSentence = it }
+                    )
+                }
+            }
+
+            // Dashboard Metrics Overview Card
             if (selectedFilter == AnalysisFilter.ALL || selectedFilter == AnalysisFilter.TREE) {
                 item {
-                    DashboardMetricsCard(stats = stats, versionStr = "v${versions.firstOrNull()?.versionNumber ?: 1}", lastRunTime = lastRunTime)
+                    SpaceDashboardMetricsCard(
+                        stats = stats,
+                        versionStr = "v${versions.firstOrNull()?.versionNumber ?: 1}",
+                        lastRunTime = lastRunTime
+                    )
                 }
 
-                // Visual Knowledge Structure (Section 10)
                 item {
                     VisualKnowledgeTreeCard()
                 }
@@ -182,13 +230,191 @@ fun AnalysisScreen(
     }
 }
 
+/**
+ * Interactive Token Logit & Probability Inspector (A=1, B=2, Softmax Rankings)
+ */
 @Composable
-fun DashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime: String) {
+fun TokenLogitsInteractiveCard(
+    sampleSentence: String,
+    tokenInfo: TokenAnalysisInfo,
+    onSentenceChange: (String) -> Unit
+) {
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, Brush.horizontalGradient(CardBorderGradient)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tag,
+                        contentDescription = null,
+                        tint = SolarFlareGold,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "HOW OTHER AI WORKS: TOKEN NUMBERS & PROBABILITIES",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = SolarFlareGold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = SolarFlareContainer
+                ) {
+                    Text(
+                        text = "A = 1, B = 2 ... Z = 26",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SolarFlareGold,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "Modern LLMs (like GPT, Gemini, Llama) don't read English directly. They convert every word into Token IDs, assign alphabetical/numerical rankings, and predict the next token by calculating probability distributions via softmax logit scores.",
+                fontSize = 11.sp,
+                color = StarlightSecondary,
+                lineHeight = 16.sp
+            )
+
+            // Sentence Input Field to experiment live
+            OutlinedTextField(
+                value = sampleSentence,
+                onValueChange = onSentenceChange,
+                label = { Text("Test any sentence live", fontSize = 11.sp) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CosmicCyan,
+                    unfocusedBorderColor = SpaceCardBorder,
+                    focusedTextColor = StarlightPrimary,
+                    unfocusedTextColor = StarlightPrimary
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // Horizontal token stream view
+            Text(
+                text = "TOKEN STREAM & LETTER CODES:",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = StarlightTertiary
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(tokenInfo.tokens) { tok ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = SpaceSurface,
+                        border = BorderStroke(1.dp, SolarFlareGold.copy(alpha = 0.4f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = tok.text,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = StarlightPrimary
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Code #${tok.alphabeticalNumber}",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SolarFlareGold
+                                )
+                                Text(
+                                    text = "ID: ${tok.tokenId}",
+                                    fontSize = 8.sp,
+                                    color = StarlightTertiary
+                                )
+                            }
+                            Text(
+                                text = "prob ${(tok.probability * 100).toInt()}%",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = OrbitEmerald
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Top predictions showcase
+            if (tokenInfo.topAlternatives.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = SpaceSurface,
+                    border = BorderStroke(1.dp, SpaceCardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Next-Word Softmax Ranking (Top Predicted Tokens):",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CosmicCyan
+                        )
+                        tokenInfo.topAlternatives.take(3).forEachIndexed { i, alt ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "#${i + 1} Word: \"${alt.token}\" (Letter #${TokenizerInspector.letterToNumber(alt.token.firstOrNull() ?: 'A')})",
+                                    fontSize = 11.sp,
+                                    color = StarlightPrimary
+                                )
+                                Text(
+                                    text = "p=${String.format(Locale.US, "%.1f", alt.probability * 100)}%",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (i == 0) OrbitEmerald else StarlightSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SpaceDashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime: String) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -198,19 +424,19 @@ fun DashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime:
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "KNOWLEDGE REASONING METRICS",
+                    text = "DEEP SPACE KNOWLEDGE METRICS",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = CosmicCyan
                 )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.primary
+                    color = SupernovaPurpleContainer
                 ) {
                     Text(
                         text = versionStr,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = CosmicCyanGlow,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
@@ -225,8 +451,8 @@ fun DashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime:
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 MetricItem("Relations", stats.relationships.toString())
-                MetricItem("Variations", stats.questions.toString())
-                MetricItem("Index Status", "Active")
+                MetricItem("Live Web", stats.liveFeeds.toString())
+                MetricItem("Autonomous", "100% Sync")
                 MetricItem("Last Analyzed", lastRunTime)
             }
         }
@@ -236,8 +462,8 @@ fun DashboardMetricsCard(stats: DashboardStats, versionStr: String, lastRunTime:
 @Composable
 fun MetricItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.Start) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = StarlightTertiary, fontSize = 10.sp)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = StarlightPrimary)
     }
 }
 
@@ -247,9 +473,8 @@ fun VisualKnowledgeTreeCard() {
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -258,49 +483,76 @@ fun VisualKnowledgeTreeCard() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.AccountTree, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountTree,
+                        contentDescription = null,
+                        tint = CosmicCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Text(
-                        text = "Visual Knowledge Structure",
+                        text = "Visual Knowledge Structure (AST)",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = StarlightPrimary
                     )
                 }
                 IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
-                    Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = StarlightSecondary
+                    )
                 }
             }
 
             AnimatedVisibility(visible = expanded) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = """
-Greeting
-├── Hi
-│   ├── casual
-│   └── friendly
-├── Hello
-│   ├── casual
-│   └── polite
-├── Hey
-│   └── casual
-└── Meeting Someone (First Time)
-    └── Nice to meet you
-                            """.trimIndent(),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    TreeLevelItem(level = 0, label = "Root Corpus: UrBots7 Cosmic Knowledge Base")
+                    TreeLevelItem(level = 1, label = "Category 1: Social Greetings & Communication")
+                    TreeLevelItem(level = 2, label = "Concept: 'Hi' → Casual greeting, reply options")
+                    TreeLevelItem(level = 2, label = "Concept: 'Hello' → Universal greeting")
+                    TreeLevelItem(level = 1, label = "Category 2: Real-Time Web Research & Feeds")
+                    TreeLevelItem(level = 2, label = "YouTube Transcripts & Summaries (Room DB)")
+                    TreeLevelItem(level = 2, label = "Reddit Live Posts & Discussion Threads")
+                    TreeLevelItem(level = 2, label = "Live DuckDuckGo / Wikipedia Web Grounding")
+                    TreeLevelItem(level = 1, label = "Category 3: Transformer Tokenizer (A=1 Word Ranking)")
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TreeLevelItem(level: Int, label: String) {
+    val indent = (level * 16).dp
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = indent),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(if (level == 0) CosmicCyan else if (level == 1) SupernovaPurple else SolarFlareGold)
+        )
+        Text(
+            text = label,
+            fontSize = if (level == 0) 12.sp else 11.sp,
+            fontWeight = if (level <= 1) FontWeight.Bold else FontWeight.Normal,
+            color = if (level == 0) StarlightPrimary else if (level == 1) CosmicCyanGlow else StarlightSecondary
+        )
     }
 }
 
@@ -309,18 +561,19 @@ fun SectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.Image
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(top = 8.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = CosmicCyan,
             modifier = Modifier.size(18.dp)
         )
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = StarlightPrimary
         )
     }
 }
@@ -329,12 +582,11 @@ fun SectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.Image
 fun ConceptCard(concept: KnowledgeConceptEntity) {
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -342,25 +594,27 @@ fun ConceptCard(concept: KnowledgeConceptEntity) {
             ) {
                 Text(
                     text = concept.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = CosmicCyan
                 )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    color = SupernovaPurpleContainer
                 ) {
                     Text(
                         text = concept.topic,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        color = SupernovaPurple,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
             Text(
                 text = concept.definition,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.bodySmall,
+                color = StarlightSecondary
             )
         }
     }
@@ -370,19 +624,20 @@ fun ConceptCard(concept: KnowledgeConceptEntity) {
 fun RelationshipCard(relationship: KnowledgeRelationshipEntity) {
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
+                color = CosmicCyanContainer,
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -390,7 +645,7 @@ fun RelationshipCard(relationship: KnowledgeRelationshipEntity) {
                         imageVector = Icons.Default.Share,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = CosmicCyan
                     )
                 }
             }
@@ -402,24 +657,26 @@ fun RelationshipCard(relationship: KnowledgeRelationshipEntity) {
                     Text(
                         text = relationship.fromConcept,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = StarlightPrimary
                     )
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.outline
+                        tint = CosmicCyan
                     )
                     Text(
                         text = relationship.toConcept,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = StarlightPrimary
                     )
                 }
                 Text(
                     text = "Type: ${relationship.relationshipType} • ${relationship.description}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = StarlightTertiary
                 )
             }
         }
@@ -430,21 +687,21 @@ fun RelationshipCard(relationship: KnowledgeRelationshipEntity) {
 fun FactCard(fact: KnowledgeFactEntity) {
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 text = fact.statement,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = StarlightPrimary
             )
             Text(
-                text = "Topic: ${fact.topic} • Category: ${fact.category}",
+                text = "Topic: ${fact.topic}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline
+                color = StarlightTertiary
             )
         }
     }
@@ -454,16 +711,16 @@ fun FactCard(fact: KnowledgeFactEntity) {
 fun QuestionVariationsShowcase() {
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, SpaceCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Systematically Generated Question Variations:",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = SupernovaPurple
             )
             Text(
                 text = "For every fact, UrBots7 creates varied linguistic representations so users asking with different vocabulary get accurate answers:\n" +
@@ -474,7 +731,7 @@ fun QuestionVariationsShowcase() {
                         "• \"What is the difference between hi and hello?\"\n" +
                         "• \"What can I say when meeting someone for the first time?\"",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = StarlightSecondary,
                 lineHeight = 18.sp
             )
         }
@@ -485,9 +742,8 @@ fun QuestionVariationsShowcase() {
 fun ConflictsInfoCard() {
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = SpaceCard),
+        border = BorderStroke(1.dp, MarsCrimson.copy(alpha = 0.3f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -495,13 +751,13 @@ fun ConflictsInfoCard() {
                 text = "Conflict Resolution Protocol:",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error
+                color = MarsCrimson
             )
             Text(
                 text = "If multiple ingested documents present conflicting statements (e.g. Doc A claims 'X is always Y' while Doc B claims 'X is never Y'), UrBots7 preserves both perspectives and formulates the response:\n" +
                         "\"Source A says X, while Source B says Y.\" No silent overwrite or artificial merge occurs.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = StarlightSecondary,
                 lineHeight = 18.sp
             )
         }

@@ -97,7 +97,7 @@ object SemanticUnderstandingEngine {
                 action = "request_help",
                 speechAct = "requesting_help",
                 sentiment = "concerned",
-                conversationGoal = "Request assistance from UrBots7",
+                conversationGoal = "Request assistance from Karllo",
                 referencedEntities = referencedEntities,
                 confidence = "High",
                 detectedMeaning = "User is requesting help with $topicDesc."
@@ -253,7 +253,7 @@ object SemanticUnderstandingEngine {
             conversationGoal = "Share statement or message",
             referencedEntities = referencedEntities,
             confidence = "Medium",
-            detectedMeaning = "User is sharing a statement with UrBots7."
+            detectedMeaning = "User is sharing a statement with Karllo."
         )
     }
 

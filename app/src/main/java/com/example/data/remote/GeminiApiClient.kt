@@ -18,13 +18,24 @@ data class GeminiRequest(
     @Json(name = "systemInstruction") val systemInstruction: GeminiContent? = null
 )
 
+data class GeminiImageRequest(
+    @Json(name = "contents") val contents: List<GeminiContent>,
+    @Json(name = "generationConfig") val generationConfig: GeminiImageGenerationConfig? = null
+)
+
 data class GeminiContent(
     @Json(name = "parts") val parts: List<GeminiPart>,
     @Json(name = "role") val role: String? = null
 )
 
 data class GeminiPart(
-    @Json(name = "text") val text: String? = null
+    @Json(name = "text") val text: String? = null,
+    @Json(name = "inlineData") val inlineData: GeminiInlineData? = null
+)
+
+data class GeminiInlineData(
+    @Json(name = "mimeType") val mimeType: String,
+    @Json(name = "data") val data: String
 )
 
 data class GeminiGenerationConfig(
@@ -32,6 +43,10 @@ data class GeminiGenerationConfig(
     @Json(name = "topP") val topP: Float? = 0.95f,
     @Json(name = "topK") val topK: Int? = 40,
     @Json(name = "responseMimeType") val responseMimeType: String? = null
+)
+
+data class GeminiImageGenerationConfig(
+    @Json(name = "responseModalities") val responseModalities: List<String> = listOf("TEXT", "IMAGE")
 )
 
 data class GeminiResponse(
@@ -48,6 +63,12 @@ interface GeminiService {
     suspend fun generateContent(
         @Query("key") apiKey: String,
         @Body request: GeminiRequest
+    ): GeminiResponse
+
+    @POST("v1beta/models/gemini-2.5-flash-image:generateContent")
+    suspend fun generateImageContent(
+        @Query("key") apiKey: String,
+        @Body request: GeminiImageRequest
     ): GeminiResponse
 }
 

@@ -48,6 +48,7 @@ class UrBotsRepository(
     val relationshipCount: Flow<Int> = dao.getRelationshipCount()
     val manualTrainingCount: Flow<Int> = dao.getManualTrainingCount()
     val liveFeedCount: Flow<Int> = dao.getLiveFeedCount()
+    val allSessions: Flow<List<String>> = dao.getAllSessions()
 
     fun getConversationMessages(sessionId: String = "default_session"): Flow<List<ConversationMessageEntity>> {
         return dao.getMessagesForSession(sessionId)
@@ -247,6 +248,11 @@ class UrBotsRepository(
             put("confidence", sem?.confidence ?: "High")
             put("speechAct", sem?.speechAct ?: "statement")
             put("liveSourcesCount", liveCitations.size)
+            put("verificationStatus", result.verificationStatus)
+            put("executionTrace", JSONArray(result.executionTrace))
+            if (result.generatedImageBase64 != null) {
+                put("generatedImageBase64", result.generatedImageBase64)
+            }
         }.toString()
 
         // 4. Record assistant message

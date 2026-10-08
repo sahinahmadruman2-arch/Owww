@@ -111,6 +111,9 @@ interface KnowledgeDao {
     suspend fun insertQuestionVariations(variations: List<QuestionVariationEntity>)
 
     // Conversations
+    @Query("SELECT DISTINCT sessionId FROM conversations ORDER BY createdAt DESC")
+    fun getAllSessions(): Flow<List<String>>
+
     @Query("SELECT * FROM conversations WHERE sessionId = :sessionId ORDER BY createdAt ASC")
     fun getMessagesForSession(sessionId: String): Flow<List<ConversationMessageEntity>>
 

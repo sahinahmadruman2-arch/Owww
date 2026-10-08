@@ -92,23 +92,20 @@ fun UrBotsApp(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Glowing Space Astronaut Avatar Core
+                            // Sleek Karllo Monogram Emblem
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(40.dp)
                                     .clip(CircleShape)
-                                    .border(
-                                        width = 2.dp,
-                                        brush = Brush.sweepGradient(StarlightGlowGradient),
-                                        shape = CircleShape
-                                    )
-                                    .shadow(elevation = 8.dp, shape = CircleShape)
+                                    .background(Brush.linearGradient(StarlightGlowGradient))
+                                    .shadow(elevation = 8.dp, shape = CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_space_ai_avatar),
-                                    contentDescription = "UrBots7 Space AI",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                Text(
+                                    text = "K",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
                                 )
                             }
 
@@ -118,7 +115,7 @@ fun UrBotsApp(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
-                                        text = "UrBots7",
+                                        text = "Karllo",
                                         fontWeight = FontWeight.ExtraBold,
                                         style = MaterialTheme.typography.titleMedium,
                                         color = StarlightPrimary,

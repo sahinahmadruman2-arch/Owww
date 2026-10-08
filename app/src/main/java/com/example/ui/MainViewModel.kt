@@ -64,9 +64,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
-    val messages = repository.getConversationMessages().stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    // Session & Chat UI state
+    val currentSessionId = MutableStateFlow("default_session")
+    val allSessions = repository.allSessions.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("default_session")
     )
+
+    val messages = currentSessionId.flatMapLatest { sessionId ->
+        repository.getConversationMessages(sessionId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val manualTrainingEntries = repository.allManualTrainingEntries.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
@@ -113,7 +119,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var isChatLoading = MutableStateFlow(false)
         private set
-    var chatLoadingStage = MutableStateFlow("UrBots7 is thinking...")
+    var chatLoadingStage = MutableStateFlow("Karllo is thinking...")
         private set
 
     // Knowledge Input UI state
@@ -177,25 +183,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (query.isEmpty() || isChatLoading.value) return
         chatInput.value = ""
         isChatLoading.value = true
-        chatLoadingStage.value = "Understanding intent & context..."
+        chatLoadingStage.value = "Understanding request & intent..."
 
         viewModelScope.launch {
             try {
-                chatLoadingStage.value = "Reasoning & generating response..."
-                repository.askQuestion(query)
+                chatLoadingStage.value = "Deciding tools & verifying answer..."
+                repository.askQuestion(query, sessionId = currentSessionId.value)
             } finally {
                 isChatLoading.value = false
             }
         }
     }
 
+    fun startNewChat(titleSuffix: String = "") {
+        val newId = if (titleSuffix.isBlank()) {
+            "chat_" + System.currentTimeMillis()
+        } else {
+            "chat_" + titleSuffix.lowercase().replace(" ", "_") + "_" + (System.currentTimeMillis() % 10000)
+        }
+        currentSessionId.value = newId
+        chatInput.value = ""
+    }
+
+    fun switchChatSession(sessionId: String) {
+        currentSessionId.value = sessionId
+    }
+
     fun regenerateLastMessage() {
         if (isChatLoading.value) return
         isChatLoading.value = true
-        chatLoadingStage.value = "Regenerating response..."
+        chatLoadingStage.value = "Regenerating & verifying..."
         viewModelScope.launch {
             try {
-                repository.regenerateLastMessage()
+                repository.regenerateLastMessage(sessionId = currentSessionId.value)
             } finally {
                 isChatLoading.value = false
             }
@@ -209,7 +229,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearChat() {
         viewModelScope.launch {
-            repository.clearConversation()
+            repository.clearConversation(sessionId = currentSessionId.value)
         }
     }
 

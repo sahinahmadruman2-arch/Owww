@@ -50,7 +50,7 @@ data class MessageSemanticAnalysis(
     val action: String? = null,
     val speechAct: String = "statement", // asking, telling, greeting, requesting_help, reporting_problem, explaining, continuing
     val sentiment: String = "neutral", // positive, negative, neutral, concerned, frustrated, confused
-    val conversationGoal: String = "Communicate with UrBots7",
+    val conversationGoal: String = "Communicate with Karllo",
     val referencedEntities: List<String> = emptyList(), // resolved "it", "that", "the game", etc.
     val confidence: String = "High",
     val detectedMeaning: String
@@ -88,7 +88,10 @@ data class GeneratedAnswerResult(
     val isSufficient: Boolean = true,
     val confidence: Float = 1.0f,
     val hasConflict: Boolean = false,
-    val conflictDescription: String? = null
+    val conflictDescription: String? = null,
+    val executionTrace: List<String> = emptyList(),
+    val verificationStatus: String = "Verified",
+    val generatedImageBase64: String? = null
 )
 
 data class PipelineStageProgress(

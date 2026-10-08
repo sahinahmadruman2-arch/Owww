@@ -3,14 +3,13 @@ package com.example.ui.screens.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -33,15 +31,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
 import com.example.data.local.entity.ConversationMessageEntity
 import com.example.domain.ai.TokenAnalysisInfo
 import com.example.domain.ai.TokenizerInspector
@@ -64,20 +61,26 @@ fun ChatScreen(
     val chatInput by viewModel.chatInput.collectAsState()
     val isChatLoading by viewModel.isChatLoading.collectAsState()
     val chatLoadingStage by viewModel.chatLoadingStage.collectAsState()
+    val currentSessionId by viewModel.currentSessionId.collectAsState()
+    val allSessions by viewModel.allSessions.collectAsState()
+
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
     // Global toggle for Token Probabilities (A=1, top word prediction probabilities)
     var showTokenProbabilityCards by remember { mutableStateOf(true) }
+    var showNewChatDialog by remember { mutableStateOf(false) }
+    var newChatTopicInput by remember { mutableStateOf("") }
 
-    val quickSpaceQuestions = listOf(
-        "Cosmic origin of stars & nebulae",
+    val quickQuestions = listOf(
+        "Generate image of futuristic neon cyberpunk city in nebula",
+        "Who is Karllo?",
+        "What is 25 * 18?",
+        "Explain gravitational waves and black holes",
+        "Generate a picture of cosmic space astronaut exploring Mars",
         "How do transformers predict words with probabilities?",
         "What does A = 1 token mapping mean?",
-        "Latest discoveries from James Webb Space Telescope",
-        "How does real-time browser research work in UrBots7?",
-        "Explain gravitational waves and black holes",
-        "Hi, UrBots cosmos explorer"
+        "Latest discoveries from James Webb Space Telescope"
     )
 
     LaunchedEffect(messages.size, isChatLoading) {
@@ -92,7 +95,7 @@ fun ChatScreen(
             .background(Brush.verticalGradient(SpaceNebulaGradient))
             .padding(horizontal = 14.dp)
     ) {
-        // Space Header with Token Probability & Live Web HUD
+        // Chat Top Bar & Chat Session Adding Controls
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -118,7 +121,7 @@ fun ChatScreen(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "Cosmic Web Research & AST",
+                        text = "Karllo Live Research & AST",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = StarlightPrimary
@@ -132,39 +135,118 @@ fun ChatScreen(
                 }
             }
 
-            // Word Probabilities & Token Index Toggle
-            FilterChip(
-                selected = showTokenProbabilityCards,
-                onClick = { showTokenProbabilityCards = !showTokenProbabilityCards },
-                label = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Analytics,
-                            contentDescription = null,
-                            tint = if (showTokenProbabilityCards) SolarFlareGold else StarlightTertiary,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = if (showTokenProbabilityCards) "Words Prob [A=1]" else "Word Numbers Off",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (showTokenProbabilityCards) SolarFlareGold else StarlightSecondary
-                        )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Word Probabilities & Token Index Toggle
+                FilterChip(
+                    selected = showTokenProbabilityCards,
+                    onClick = { showTokenProbabilityCards = !showTokenProbabilityCards },
+                    label = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Analytics,
+                                contentDescription = null,
+                                tint = if (showTokenProbabilityCards) SolarFlareGold else StarlightTertiary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = if (showTokenProbabilityCards) "Words [A=1]" else "Words Off",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (showTokenProbabilityCards) SolarFlareGold else StarlightSecondary
+                            )
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SolarFlareContainer.copy(alpha = 0.6f),
+                        containerColor = SpaceSurface
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (showTokenProbabilityCards) SolarFlareGold.copy(alpha = 0.6f) else SpaceCardBorder
+                    ),
+                    modifier = Modifier.testTag("toggle_token_probability")
+                )
+
+                // Add New Chat Button
+                FilledTonalButton(
+                    onClick = { showNewChatDialog = true },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = CosmicCyanContainer,
+                        contentColor = CosmicCyan
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(34.dp).testTag("new_chat_button")
+                ) {
+                    Icon(Icons.Default.AddComment, contentDescription = "New Chat", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("New Chat", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Sessions Switcher Ribbon if multiple chats exist
+        val sessionList = remember(allSessions, currentSessionId) {
+            val list = allSessions.toMutableList()
+            if (!list.contains(currentSessionId)) list.add(0, currentSessionId)
+            if (!list.contains("default_session")) list.add("default_session")
+            list.distinct()
+        }
+
+        if (sessionList.size > 1) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(sessionList) { sId ->
+                    val isSelected = sId == currentSessionId
+                    val displayName = when {
+                        sId == "default_session" -> "Main Chat"
+                        sId.startsWith("chat_") -> {
+                            val raw = sId.removePrefix("chat_")
+                            if (raw.all { it.isDigit() }) "Chat #${raw.takeLast(4)}" else raw.replace("_", " ").take(16)
+                        }
+                        else -> sId.take(16)
                     }
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SolarFlareContainer.copy(alpha = 0.6f),
-                    containerColor = SpaceSurface
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    if (showTokenProbabilityCards) SolarFlareGold.copy(alpha = 0.6f) else SpaceCardBorder
-                ),
-                modifier = Modifier.testTag("toggle_token_probability")
-            )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) SupernovaPurpleContainer else SpaceSurface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) SupernovaPurple else SpaceCardBorder
+                        ),
+                        modifier = Modifier.clickable { viewModel.switchChatSession(sId) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.ChatBubble else Icons.Outlined.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = if (isSelected) CosmicCyanGlow else StarlightTertiary,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = displayName,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) StarlightPrimary else StarlightSecondary
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Live Chat Message Feed
@@ -174,8 +256,8 @@ fun ChatScreen(
                 .fillMaxWidth()
         ) {
             if (messages.isEmpty()) {
-                EmptySpaceChatPlaceholder(
-                    quickQuestions = quickSpaceQuestions,
+                EmptyKarlloChatPlaceholder(
+                    quickQuestions = quickQuestions,
                     onSelectQuestion = { q ->
                         viewModel.updateChatInput(q)
                         viewModel.sendChatMessage()
@@ -189,7 +271,7 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(messages, key = { it.id }) { msg ->
-                        SpaceChatMessageItem(
+                        KarlloChatMessageItem(
                             message = msg,
                             showTokenInspector = showTokenProbabilityCards,
                             onRegenerate = {
@@ -206,7 +288,7 @@ fun ChatScreen(
 
                     if (isChatLoading) {
                         item {
-                            SpaceProcessingIndicator(stage = chatLoadingStage)
+                            KarlloProcessingIndicator(stage = chatLoadingStage)
                         }
                     }
                 }
@@ -221,7 +303,7 @@ fun ChatScreen(
                     .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(quickSpaceQuestions.take(5)) { prompt ->
+                items(quickQuestions.take(5)) { prompt ->
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = SpaceSurface.copy(alpha = 0.7f),
@@ -243,7 +325,7 @@ fun ChatScreen(
             }
         }
 
-        // Futuristic Space Command Input Box
+        // Futuristic Command Input Box
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -275,10 +357,25 @@ fun ChatScreen(
                     }
                 } else {
                     Icon(
-                        imageVector = Icons.Outlined.Explore,
-                        contentDescription = "Deep Cosmos",
+                        imageVector = Icons.Outlined.Psychology,
+                        contentDescription = "Karllo AI Intelligence",
                         tint = CosmicCyan,
                         modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Quick Image Generation Action
+                IconButton(
+                    onClick = {
+                        viewModel.updateChatInput("Generate image of ")
+                    },
+                    modifier = Modifier.size(28.dp).testTag("quick_generate_image_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Image,
+                        contentDescription = "Generate Image",
+                        tint = DeepNebulaMagenta,
+                        modifier = Modifier.size(19.dp)
                     )
                 }
 
@@ -287,7 +384,7 @@ fun ChatScreen(
                     onValueChange = { viewModel.updateChatInput(it) },
                     placeholder = {
                         Text(
-                            text = "Ask UrBots7 anything (research web, space, words...)",
+                            text = "Ask Karllo or 'Generate image of ...'",
                             color = StarlightTertiary,
                             fontSize = 13.sp
                         )
@@ -335,13 +432,57 @@ fun ChatScreen(
             }
         }
     }
+
+    // New Chat Creation Dialog
+    if (showNewChatDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewChatDialog = false },
+            title = {
+                Text("Start New Chat", fontWeight = FontWeight.Bold, color = StarlightPrimary)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Give this chat a title or topic (optional):",
+                        fontSize = 12.sp,
+                        color = StarlightSecondary
+                    )
+                    OutlinedTextField(
+                        value = newChatTopicInput,
+                        onValueChange = { newChatTopicInput = it },
+                        placeholder = { Text("e.g. Science, Space, Math, Coding", fontSize = 12.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("new_chat_title_input")
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.startNewChat(newChatTopicInput.trim())
+                        newChatTopicInput = ""
+                        showNewChatDialog = false
+                    },
+                    modifier = Modifier.testTag("confirm_new_chat_button")
+                ) {
+                    Text("Create Chat")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewChatDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = SpaceCard
+        )
+    }
 }
 
 /**
- * Deep Space Empty State with Constellations & Fast Quick-Start Prompts
+ * Karllo Empty State without robot photo (clean glowing geometric avatar)
  */
 @Composable
-fun EmptySpaceChatPlaceholder(
+fun EmptyKarlloChatPlaceholder(
     quickQuestions: List<String>,
     onSelectQuestion: (String) -> Unit
 ) {
@@ -352,88 +493,85 @@ fun EmptySpaceChatPlaceholder(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Space Avatar Core
+        // Geometric Modern Karllo Emblem
         Box(
             modifier = Modifier
-                .size(86.dp)
+                .size(72.dp)
                 .clip(CircleShape)
-                .border(2.dp, Brush.sweepGradient(StarlightGlowGradient), CircleShape)
-                .shadow(16.dp, CircleShape)
+                .background(Brush.linearGradient(StarlightGlowGradient))
+                .shadow(12.dp, CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.img_space_ai_avatar),
-                contentDescription = "UrBots7 Space AI",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+            Text(
+                text = "K",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                fontFamily = FontFamily.SansSerif
             )
         }
 
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "UrBots7 Cosmic Intelligence",
+            text = "Karllo",
             fontWeight = FontWeight.ExtraBold,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = StarlightPrimary,
             letterSpacing = 0.5.sp
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Real-Time Browser Engine • Next-Word Token Probabilities • SQLite Store",
+            text = "Verified Reasoning Pipeline • Real-Time Web • Word Numbers [A=1]",
             style = MaterialTheme.typography.bodySmall,
             color = CosmicCyan,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Space Sci-Fi Features Overview Card
+        // Karllo Pipeline Architecture Diagram Card
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = SpaceCard),
             border = BorderStroke(1.dp, Brush.horizontalGradient(CardBorderGradient)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SolarFlareGold, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = OrbitEmeraldGlow, modifier = Modifier.size(15.dp))
                     Text(
-                        text = "Next-Word Prediction & Alphabetical Numbers (A = 1)",
-                        fontSize = 12.sp,
+                        text = "Karllo Execution & Verification Pipeline",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = StarlightPrimary
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "See how modern LLMs tokenize text into IDs, calculate token probabilities, and map letters to alphabetical numbers (A=1, B=2) alongside live browser research.",
-                    fontSize = 11.sp,
-                    color = StarlightSecondary,
-                    lineHeight = 16.sp
-                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // Visual flow breakdown
+                PipelineVisualFlowDiagram()
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "COMMENCE EXPLORATION QUERY",
+            text = "COMMENCE QUERY",
             fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             color = StarlightTertiary,
             letterSpacing = 1.sp
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Suggested Queries List
-        quickQuestions.take(4).forEach { question ->
+        quickQuestions.take(3).forEach { question ->
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = SpaceSurface,
@@ -444,7 +582,7 @@ fun EmptySpaceChatPlaceholder(
                     .clickable { onSelectQuestion(question) }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -452,7 +590,7 @@ fun EmptySpaceChatPlaceholder(
                         text = question,
                         style = MaterialTheme.typography.bodySmall,
                         color = StarlightPrimary,
-                        fontSize = 12.sp
+                        fontSize = 11.sp
                     )
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -467,11 +605,58 @@ fun EmptySpaceChatPlaceholder(
 }
 
 /**
- * Chat Message Item with Deep Space Aesthetics, Sources Accordion,
+ * Diagram showing the 7-step pipeline:
+ * User request -> Understand -> Decide what tools are needed -> Browser/Knowledge/Calculator/etc -> Collect info -> Verify -> Answer.
+ */
+@Composable
+fun PipelineVisualFlowDiagram() {
+    val steps = listOf(
+        "User request" to CosmicCyan,
+        "Understand" to SupernovaPurple,
+        "Decide what tools are needed" to DeepNebulaMagenta,
+        "Browser / Knowledge / Calculator / etc." to SolarFlareGold,
+        "Collect information" to CosmicCyan,
+        "Verify" to OrbitEmeraldGlow,
+        "Answer." to OrbitEmerald
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        steps.forEachIndexed { index, (label, color) ->
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = color.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = color,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+            if (index < steps.size - 1) {
+                Text(
+                    text = "↓",
+                    fontSize = 10.sp,
+                    color = StarlightTertiary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Chat Message Item with Verification Trace Accordion, Sources Accordion,
  * and Next-Word Token Probability Inspection Dock.
  */
 @Composable
-fun SpaceChatMessageItem(
+fun KarlloChatMessageItem(
     message: ConversationMessageEntity,
     showTokenInspector: Boolean,
     onRegenerate: () -> Unit
@@ -479,6 +664,7 @@ fun SpaceChatMessageItem(
     val isUser = message.role == "user"
     val context = LocalContext.current
     var showSources by remember { mutableStateOf(false) }
+    var showTrace by remember { mutableStateOf(false) }
     var showTokenBreakdown by remember { mutableStateOf(false) }
 
     val formattedTime = remember(message.createdAt) {
@@ -486,7 +672,6 @@ fun SpaceChatMessageItem(
         sdf.format(Date(message.createdAt))
     }
 
-    // Token Analysis calculation (A=1, B=2, probabilities)
     val tokenAnalysis = remember(message.message) {
         TokenizerInspector.analyzeText(message.message)
     }
@@ -514,10 +699,20 @@ fun SpaceChatMessageItem(
         else {
             try {
                 val obj = JSONObject(message.analysisMetadataJson)
+                val traceArr = obj.optJSONArray("executionTrace")
+                val traceList = mutableListOf<String>()
+                if (traceArr != null) {
+                    for (i in 0 until traceArr.length()) {
+                        traceList.add(traceArr.getString(i))
+                    }
+                }
                 mapOf(
                     "intent" to obj.optString("intent", "GENERAL"),
-                    "topic" to obj.optString("topic", "Cosmos"),
-                    "detectedMeaning" to obj.optString("detectedMeaning", "Exploration")
+                    "topic" to obj.optString("topic", "General"),
+                    "detectedMeaning" to obj.optString("detectedMeaning", "Exploration"),
+                    "verificationStatus" to obj.optString("verificationStatus", "Verified"),
+                    "executionTrace" to traceList,
+                    "generatedImageBase64" to obj.optString("generatedImageBase64", "")
                 )
             } catch (_: Exception) {
                 null
@@ -545,7 +740,7 @@ fun SpaceChatMessageItem(
                         )
                     )
                     .background(Brush.linearGradient(UserMessageGradient))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Column {
                     Text(
@@ -565,23 +760,24 @@ fun SpaceChatMessageItem(
                 }
             }
         } else {
-            // Bot Response Card in Deep Space Style
+            // Karllo Response Card without robot photo (clean monogram badge)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Astronaut Space Avatar
+                // Karllo Letter Emblem
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .border(1.5.dp, CosmicCyan, CircleShape)
+                        .background(Brush.linearGradient(StarlightGlowGradient)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_space_ai_avatar),
-                        contentDescription = "UrBots7 Space AI",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                    Text(
+                        text = "K",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
                     )
                 }
 
@@ -597,7 +793,7 @@ fun SpaceChatMessageItem(
                     modifier = Modifier.widthIn(max = 330.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
-                        // Header: Bot ID + Intent Badge + Word Rank Pill
+                        // Header: Karllo + Intent + Verified badge
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -608,7 +804,7 @@ fun SpaceChatMessageItem(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "UrBots7",
+                                    text = "Karllo",
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = CosmicCyan
@@ -622,23 +818,161 @@ fun SpaceChatMessageItem(
                                 )
                             }
 
-                            analysisData?.get("intent")?.let { intentName ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = SupernovaPurpleContainer.copy(alpha = 0.8f)
+                            // Verification Badge
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = OrbitEmeraldContainer.copy(alpha = 0.8f),
+                                border = BorderStroke(1.dp, OrbitEmerald.copy(alpha = 0.5f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = OrbitEmeraldGlow,
+                                        modifier = Modifier.size(10.dp)
+                                    )
                                     Text(
-                                        text = intentName,
+                                        text = (analysisData?.get("verificationStatus") as? String) ?: "Verified",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = SupernovaPurple,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        color = OrbitEmeraldGlow
                                     )
                                 }
                             }
                         }
 
+                        // Execution Pipeline Accordion Pill
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SpaceSurface,
+                            border = BorderStroke(1.dp, CosmicCyan.copy(alpha = 0.25f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showTrace = !showTrace }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schema,
+                                        contentDescription = null,
+                                        tint = CosmicCyan,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = "Understand → Decide tools → Verify → Answer",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = CosmicCyan
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (showTrace) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = StarlightTertiary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+
+                        // Expanded Execution Trace
+                        AnimatedVisibility(visible = showTrace) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp)
+                                    .background(SpaceSurface, RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                @Suppress("UNCHECKED_CAST")
+                                val traceList = (analysisData?.get("executionTrace") as? List<String>)
+                                    ?: listOf(
+                                        "User request",
+                                        "Understand",
+                                        "Decide what tools are needed",
+                                        "Browser / Knowledge / Calculator / etc.",
+                                        "Collect information",
+                                        "Verify",
+                                        "Answer."
+                                    )
+
+                                traceList.forEachIndexed { idx, step ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "${idx + 1}.",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SolarFlareGold
+                                        )
+                                        Text(
+                                            text = step,
+                                            fontSize = 9.sp,
+                                            color = StarlightSecondary
+                                        )
+                                    }
+                                    if (idx < traceList.size - 1) {
+                                        Text(
+                                            text = "    ↓",
+                                            fontSize = 9.sp,
+                                            color = StarlightTertiary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
+
+                        // Generated Image Rendering if present
+                        val imgBase64 = (analysisData?.get("generatedImageBase64") as? String)
+                        val imageBitmap = remember(imgBase64) {
+                            if (!imgBase64.isNullOrBlank()) {
+                                try {
+                                    val bytes = Base64.decode(imgBase64, Base64.DEFAULT)
+                                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    bmp?.asImageBitmap()
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            } else null
+                        }
+
+                        if (imageBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = SpaceSurface,
+                                border = BorderStroke(1.5.dp, CosmicCyan.copy(alpha = 0.5f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Image(
+                                    bitmap = imageBitmap,
+                                    contentDescription = "Karllo Generated Image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(240.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
 
                         // Assistant Text Response
                         Text(
@@ -648,15 +982,13 @@ fun SpaceChatMessageItem(
                             lineHeight = 22.sp
                         )
 
-                        // ============================================================
-                        // NEW FEATURE: Token Probabilities & Alphabetical Codes (A=1)
-                        // ============================================================
+                        // Word Probabilities & Alphabetical Codes (A=1)
                         if (showTokenInspector && tokenAnalysis.tokens.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             HorizontalDivider(color = SpaceCardBorder)
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            // Word Numbers & Prediction Ribbon
+                            // Word Numbers Ribbon
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -682,7 +1014,7 @@ fun SpaceChatMessageItem(
                                     )
                                     Surface(
                                         shape = RoundedCornerShape(4.dp),
-                                        color = SolarFlareGold.copy(alpha = 0.15f)
+                                        color = SolarFlareContainer.copy(alpha = 0.15f)
                                     ) {
                                         Text(
                                             text = "${tokenAnalysis.tokens.size} tokens",
@@ -721,7 +1053,6 @@ fun SpaceChatMessageItem(
                                         .fillMaxWidth()
                                         .padding(top = 8.dp)
                                         .background(SpaceSurface, RoundedCornerShape(10.dp))
-                                        .border(1.dp, SpaceCardBorder, RoundedCornerShape(10.dp))
                                         .padding(10.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
@@ -730,54 +1061,35 @@ fun SpaceChatMessageItem(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "Model Perplexity: ${String.format(Locale.US, "%.2f", tokenAnalysis.perplexity)}",
+                                            text = "Alphabetical Mapping:",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CosmicCyan
+                                        )
+                                        Text(
+                                            text = "A=1, B=2 ... Z=26",
                                             fontSize = 10.sp,
                                             color = StarlightSecondary
                                         )
-                                        Text(
-                                            text = "Avg Token Prob: ${(tokenAnalysis.averageConfidence * 100).toInt()}%",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = OrbitEmerald
-                                        )
                                     }
 
-                                    HorizontalDivider(color = SpaceCardBorder.copy(alpha = 0.5f))
-
-                                    Text(
-                                        text = "How Other AI Models Rank Top Next-Words:",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = CosmicCyan
-                                    )
-
-                                    tokenAnalysis.tokens.take(4).forEach { tok ->
+                                    tokenAnalysis.tokens.take(5).forEach { tok ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Text(
-                                                    text = "\"${tok.text}\"",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 11.sp,
-                                                    color = StarlightPrimary
-                                                )
-                                                Text(
-                                                    text = "→ Letter #${tok.alphabeticalNumber} [ID ${tok.tokenId}]",
-                                                    fontSize = 9.sp,
-                                                    color = SolarFlareGold
-                                                )
-                                            }
                                             Text(
-                                                text = "p=${(tok.probability * 100).toInt()}% (Top 1)",
+                                                text = "\"${tok.text}\" → [Letter #${tok.alphabeticalNumber}]",
                                                 fontSize = 10.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = OrbitEmerald
+                                                fontWeight = FontWeight.Medium,
+                                                color = StarlightPrimary
+                                            )
+                                            Text(
+                                                text = "${(tok.probability * 100).toInt()}% prob (logit: ${"%.2f".format(tok.logit)})",
+                                                fontSize = 9.sp,
+                                                color = SolarFlareGold,
+                                                fontFamily = FontFamily.Monospace
                                             )
                                         }
                                     }
@@ -785,7 +1097,7 @@ fun SpaceChatMessageItem(
                             }
                         }
 
-                        // Grounding Citations Accordion (Live Research)
+                        // Grounded Citations
                         if (sourcesList.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             HorizontalDivider(color = SpaceCardBorder)
@@ -803,18 +1115,19 @@ fun SpaceChatMessageItem(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                                        imageVector = Icons.Default.MenuBook,
                                         contentDescription = null,
-                                        tint = OrbitEmerald,
-                                        modifier = Modifier.size(14.dp)
+                                        tint = CosmicCyan,
+                                        modifier = Modifier.size(13.dp)
                                     )
                                     Text(
-                                        text = "Live Grounding & Research (${sourcesList.size})",
+                                        text = "${sourcesList.size} Grounded Sources",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = OrbitEmerald
+                                        color = CosmicCyan
                                     )
                                 }
+
                                 Icon(
                                     imageVector = if (showSources) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                     contentDescription = null,
@@ -825,54 +1138,38 @@ fun SpaceChatMessageItem(
 
                             AnimatedVisibility(visible = showSources) {
                                 Column(
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(top = 6.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    sourcesList.forEach { (doc, section, statement) ->
-                                        val isReddit = doc.contains("Reddit", ignoreCase = true)
-                                        val isYouTube = doc.contains("YouTube", ignoreCase = true)
-                                        val isWeb = doc.contains("Browser", ignoreCase = true) || doc.contains("Wikipedia", ignoreCase = true) || doc.contains("Web", ignoreCase = true)
-
-                                        val badgeColor = when {
-                                            isReddit -> RedditOrange
-                                            isYouTube -> YouTubeRed
-                                            isWeb -> WebBrowserBlue
-                                            else -> CosmicCyan
-                                        }
-                                        val badgeIcon = when {
-                                            isReddit -> Icons.Outlined.RssFeed
-                                            isYouTube -> Icons.Outlined.PlayCircle
-                                            isWeb -> Icons.Outlined.Language
-                                            else -> Icons.Default.Book
-                                        }
-
+                                    sourcesList.forEach { (doc, sec, stmt) ->
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = SpaceSurface,
-                                            border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.4f)),
+                                            border = BorderStroke(1.dp, SpaceCardBorder),
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Column(modifier = Modifier.padding(8.dp)) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                ) {
-                                                    Icon(badgeIcon, contentDescription = null, tint = badgeColor, modifier = Modifier.size(13.dp))
+                                                Text(
+                                                    text = doc,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = CosmicCyan
+                                                )
+                                                if (sec.isNotBlank()) {
                                                     Text(
-                                                        text = "$doc → $section",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = badgeColor,
-                                                        modifier = Modifier.weight(1f)
+                                                        text = sec,
+                                                        fontSize = 10.sp,
+                                                        color = StarlightSecondary
                                                     )
                                                 }
-                                                if (statement.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                if (stmt.isNotBlank()) {
                                                     Text(
-                                                        text = "\"$statement\"",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = StarlightSecondary,
-                                                        fontSize = 11.sp
+                                                        text = stmt,
+                                                        fontSize = 10.sp,
+                                                        color = StarlightTertiary,
+                                                        lineHeight = 14.sp
                                                     )
                                                 }
                                             }
@@ -900,7 +1197,7 @@ fun SpaceChatMessageItem(
                                 IconButton(
                                     onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = ClipData.newPlainText("UrBots7 Response", message.message)
+                                        val clip = ClipData.newPlainText("Karllo Response", message.message)
                                         clipboard.setPrimaryClip(clip)
                                         Toast.makeText(context, "Copied response", Toast.LENGTH_SHORT).show()
                                     },
@@ -948,28 +1245,26 @@ fun TokenChipView(token: com.example.domain.ai.AnalyzedToken) {
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Word
             Text(
                 text = token.text,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = StarlightPrimary
             )
-            // Number mapping (A=1) + Probability
             Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = "#${token.alphabeticalNumber}",
+                    text = "${token.alphabeticalNumber}",
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Black,
                     color = SolarFlareGold
                 )
                 Text(
-                    text = "${(token.probability * 100).toInt()}%",
+                    text = "• ${(token.probability * 100).toInt()}%",
                     fontSize = 8.sp,
-                    color = OrbitEmerald
+                    color = CosmicCyan
                 )
             }
         }
@@ -977,10 +1272,10 @@ fun TokenChipView(token: com.example.domain.ai.AnalyzedToken) {
 }
 
 /**
- * High-Tech Pulsing Space Progress Indicator
+ * Pulsing Progress Indicator
  */
 @Composable
-fun SpaceProcessingIndicator(stage: String) {
+fun KarlloProcessingIndicator(stage: String) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = SpaceCard,
@@ -999,13 +1294,13 @@ fun SpaceProcessingIndicator(stage: String) {
             )
             Column {
                 Text(
-                    text = "Cosmic Engine Active",
+                    text = "Karllo Pipeline Active",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = CosmicCyan
                 )
                 Text(
-                    text = stage.ifBlank { "Querying live web & synthesizing token distribution..." },
+                    text = stage.ifBlank { "Understand → Decide tools → Verify → Answer..." },
                     fontSize = 10.sp,
                     color = StarlightSecondary
                 )

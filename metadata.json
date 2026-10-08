@@ -1,6 +1,6 @@
 {
-  "name": "UrBots7",
-  "description": "AI knowledge-learning system that deeply analyzes books, live Reddit discussions, YouTube video knowledge, and taught Q&A into structured reusable knowledge graphs and answers questions semantically without manual training.",
+  "name": "Karllo",
+  "description": "Karllo - AI knowledge-learning and verified research system that analyzes books, real-time web, Reddit discussions, YouTube knowledge, formulas, and token probabilities.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

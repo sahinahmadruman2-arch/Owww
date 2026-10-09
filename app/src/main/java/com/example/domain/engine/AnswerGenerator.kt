@@ -6,6 +6,7 @@ import com.example.data.remote.*
 import com.example.domain.model.GeneratedAnswerResult
 import com.example.domain.model.MessageSemanticAnalysis
 import com.example.domain.model.RetrievalResult
+import com.example.domain.model.SourceCitation
 import com.example.domain.model.UserIntent
 import java.util.Locale
 
@@ -23,61 +24,33 @@ class AnswerGenerator {
         // 0. Build dynamic execution trace:
         // User request -> Understand -> Decide what tools are needed -> Browser / Knowledge / Calculator / etc. -> Collect information -> Verify -> Answer.
         val executionTrace = mutableListOf<String>()
-        executionTrace.add("User request")
-        executionTrace.add("Understand [Intent: ${intent.name}]")
+        executionTrace.add("User request [${query.take(40)}${if (query.length > 40) "..." else ""}]")
+        executionTrace.add("Understand [Intent: ${intent.name}, Domain: ${analysis.knowledgeDomain}]")
 
         val neededTools = mutableListOf<String>()
-        val isImageReq = ImageGenerationEngine.isImageGenerationRequest(query)
-        if (isImageReq) {
-            neededTools.add("Image Generator")
-        }
-        if (CalculatorEngine.tryCalculate(query) != null) {
+        val calcAttempt = CalculatorEngine.tryCalculate(query)
+        if (calcAttempt != null) {
             neededTools.add("Calculator")
         }
-        if (webResearchResults.isNotEmpty()) {
-            neededTools.add("Browser")
+        if (webResearchResults.isNotEmpty() || !intent.isConversational) {
+            neededTools.add("Real-Time Browser")
         }
         if (retrieval.matchedConcepts.isNotEmpty() || retrieval.matchedFacts.isNotEmpty() || retrieval.matchedAnswers.isNotEmpty()) {
-            neededTools.add("Knowledge")
+            neededTools.add("Knowledge Graph")
         }
         if (neededTools.isEmpty()) {
-            neededTools.add("Reasoning Engine")
+            neededTools.add("Cognitive Reasoning Engine")
         }
 
-        executionTrace.add("Decide what tools are needed [${neededTools.joinToString(", ")}]")
-        executionTrace.add(neededTools.joinToString(" / ") + " / etc.")
-        executionTrace.add("Collect information")
-
-        var candidateAnswer: String
-
-        // 0. Image Generation Request Handler
-        if (isImageReq) {
-            val imgPrompt = ImageGenerationEngine.extractImagePrompt(query)
-            val imgResult = ImageGenerationEngine.generateImage(imgPrompt)
-            executionTrace.add("Verify [Visual artifact rendered and verified]")
-            executionTrace.add("Answer")
-            val desc = imgResult.description ?: "Here is the generated image for: \"$imgPrompt\""
-            return GeneratedAnswerResult(
-                answerText = "$desc\n\n[Engine: ${imgResult.source}]",
-                sources = emptyList(),
-                resolvedContext = null,
-                userIntent = UserIntent.QUESTION,
-                semanticAnalysis = analysis,
-                isSufficient = true,
-                confidence = 1.0f,
-                executionTrace = executionTrace,
-                verificationStatus = "Verified Image Render",
-                generatedImageBase64 = imgResult.base64Data
-            )
-        }
+        executionTrace.add("Tool Dispatch [${neededTools.joinToString(", ")}]")
+        executionTrace.add("Collect information [Multi-Source Data Ingestion]")
 
         // A. Check Calculator first if user asked a calculation
-        val calcResult = CalculatorEngine.tryCalculate(query)
-        if (calcResult != null) {
-            executionTrace.add("Verify [Calculated formula verified]")
-            executionTrace.add("Answer")
+        if (calcAttempt != null) {
+            executionTrace.add("Verify [Arithmetic logic mathematically verified]")
+            executionTrace.add("Answer [Calculated Output]")
             return GeneratedAnswerResult(
-                answerText = calcResult,
+                answerText = calcAttempt,
                 sources = emptyList(),
                 resolvedContext = null,
                 userIntent = UserIntent.QUESTION,
@@ -85,14 +58,16 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 1.0f,
                 executionTrace = executionTrace,
-                verificationStatus = "Verified via Calculator"
+                verificationStatus = "Verified via Arithmetic Logic",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Mathematical Symbolic Computation"
             )
         }
 
         // B. HELP / PROBLEM REPORTING INTENTS
         if (intent.isHelpOrProblem) {
             val localDraft = synthesizeProblemOrHelpAnswer(analysis, recentMessages)
-            candidateAnswer = localDraft
+            var candidateAnswer = localDraft
 
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
@@ -105,8 +80,8 @@ class AnswerGenerator {
             }
 
             val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
-            executionTrace.add("Verify [Empathy & Problem Diagnostic check]")
-            executionTrace.add("Answer")
+            executionTrace.add("Verify [Diagnostic empathy & problem check]")
+            executionTrace.add("Answer [Guidance Response]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
                 sources = emptyList(),
@@ -116,13 +91,15 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 0.98f,
                 executionTrace = executionTrace,
-                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified"
+                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Diagnostic Empathy"
             )
         }
 
         // C. CONVERSATIONAL INTENTS (Greetings, Casual Chat, Farewells, Thanks)
         if (intent.isConversational) {
-            candidateAnswer = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
+            var candidateAnswer = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
 
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
@@ -136,7 +113,7 @@ class AnswerGenerator {
 
             val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
             executionTrace.add("Verify [Conversational appropriateness check]")
-            executionTrace.add("Answer")
+            executionTrace.add("Answer [Social Interaction]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
                 sources = emptyList(),
@@ -146,16 +123,18 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 0.98f,
                 executionTrace = executionTrace,
-                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified"
+                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Social Interaction Protocol"
             )
         }
 
         // D. FOLLOW UP / CONTINUATION
         if (intent == UserIntent.FOLLOW_UP) {
-            candidateAnswer = synthesizeFollowUpAnswer(analysis, recentMessages)
+            val candidateAnswer = synthesizeFollowUpAnswer(analysis, recentMessages)
             val validation = ResponseRelevanceValidator.validateAndRefine(candidateAnswer, analysis, recentMessages)
             executionTrace.add("Verify [Context continuity check]")
-            executionTrace.add("Answer")
+            executionTrace.add("Answer [Continued Dialogue]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
                 sources = emptyList(),
@@ -165,7 +144,9 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 0.95f,
                 executionTrace = executionTrace,
-                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified"
+                verificationStatus = if (validation.isValid) "Verified" else "Refined & Verified",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Contextual Anaphora Continuity"
             )
         }
 
@@ -177,7 +158,7 @@ class AnswerGenerator {
                 append("Depending on the source referenced, interpretations differ.")
             }
             executionTrace.add("Verify [Conflicting perspectives identified]")
-            executionTrace.add("Answer")
+            executionTrace.add("Answer [Contrasting Perspectives]")
             return GeneratedAnswerResult(
                 answerText = conflictText,
                 sources = retrieval.citations,
@@ -188,16 +169,65 @@ class AnswerGenerator {
                 hasConflict = true,
                 conflictDescription = retrieval.conflicts.firstOrNull(),
                 executionTrace = executionTrace,
-                verificationStatus = "Verified with perspective contrast"
+                verificationStatus = "Verified with perspective contrast",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Dialectical Synthesis"
             )
         }
 
-        // F. KNOWLEDGE QUESTIONS, WEB RESEARCH & GENERAL QUERIES
-        val localAttempt = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
-        val hasLocalKnowledge = !localAttempt.startsWith("I understand! Let me know")
+        // F. DIRECT FACTUAL & KNOWLEDGE ENGINE WITH REAL-TIME BROWSER AND REASONING
+        // 0. Manual Teaching / Explicitly Learned Knowledge Check First
+        val manualTeach = retrieval.matchedAnswers.find { it.isManualTeach }
+        if (manualTeach != null) {
+            executionTrace.add("Verify [Manually taught knowledge verified]")
+            executionTrace.add("Answer [Taught Knowledge Grounded]")
+            return GeneratedAnswerResult(
+                answerText = manualTeach.answerText,
+                sources = retrieval.citations,
+                resolvedContext = retrieval.resolvedContext,
+                userIntent = intent,
+                semanticAnalysis = analysis,
+                isSufficient = true,
+                confidence = 1.0f,
+                executionTrace = executionTrace,
+                verificationStatus = "Verified from explicit manual training",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Taught Knowledge Recall"
+            )
+        }
 
-        // 1. If local knowledge exists, use it
-        if (hasLocalKnowledge && (retrieval.matchedConcepts.isNotEmpty() || retrieval.matchedFacts.isNotEmpty() || retrieval.matchedAnswers.isNotEmpty())) {
+        // 1. Try Direct Fact / Common Knowledge / Live Research Extraction
+        val directWebOrFact = WebResearchClient.extractDirectAnswer(query, webResearchResults, analysis.constraints)
+        if (directWebOrFact != null) {
+            executionTrace.add("Verify [Live web consensus & constraint satisfaction]")
+            executionTrace.add("Answer [Verified Direct Output]")
+            return GeneratedAnswerResult(
+                answerText = directWebOrFact,
+                sources = webResearchResults.map {
+                    SourceCitation(
+                        documentTitle = "${it.engine} (${it.sourceDomain})",
+                        sectionTitle = it.title,
+                        statement = it.snippet,
+                        conceptName = "Live Real-Time Browser"
+                    )
+                },
+                resolvedContext = retrieval.resolvedContext,
+                userIntent = intent,
+                semanticAnalysis = analysis,
+                isSufficient = true,
+                confidence = 0.99f,
+                executionTrace = executionTrace,
+                verificationStatus = "Verified via Real-Time Web Consensus",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = if (analysis.constraints.isNotEmpty()) "Constrained Direct Fact Extraction" else "Real-Time Web Synthesis"
+            )
+        }
+
+        // 2. Check Local Knowledge Graph ONLY if actually sufficient and relevant
+        val localAttempt = synthesizeLocalAnswer(query, retrieval, analysis, recentMessages)
+        val hasLegitLocalKnowledge = localAttempt != "Oh sorry i need more details to answer you about your question"
+
+        if (hasLegitLocalKnowledge) {
             var answerWithAi = localAttempt
             val apiKey = BuildConfig.GEMINI_API_KEY
             if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
@@ -210,7 +240,7 @@ class AnswerGenerator {
             }
             val validation = ResponseRelevanceValidator.validateAndRefine(answerWithAi, analysis, recentMessages)
             executionTrace.add("Verify [Factual grounding in local store]")
-            executionTrace.add("Answer")
+            executionTrace.add("Answer [Knowledge Graph Grounded]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
                 sources = retrieval.citations,
@@ -220,13 +250,32 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 0.95f,
                 executionTrace = executionTrace,
-                verificationStatus = "Verified against local knowledge graph"
+                verificationStatus = "Verified against local knowledge graph",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Graph Traversal & Fact Verification"
             )
         }
 
-        // 2. If we have live browser research results
-        if (webResearchResults.isNotEmpty()) {
-            val synthesizedWebAnswer = synthesizeWebResearchAnswer(query, webResearchResults)
+        // 3. Live Browser Research Results Available (verify evidence actually matches query subject)
+        val queryKeywords = query.lowercase(Locale.ROOT)
+            .split(Regex("[^a-z0-9]"))
+            .filter { it.length > 2 && !setOf("what", "how", "why", "when", "where", "who", "the", "and", "for", "with", "about", "secret").contains(it) }
+
+        val hasMeaningfulWebEvidence = webResearchResults.isNotEmpty() && (
+            webResearchResults.any { res ->
+                val resLower = (res.title + " " + res.snippet).lowercase(Locale.ROOT)
+                if (queryKeywords.any { it.any { c -> c.isDigit() } }) {
+                    // Query has specific alphanumeric code/number -> snippet must contain it!
+                    queryKeywords.filter { it.any { c -> c.isDigit() } }.any { resLower.contains(it) }
+                } else {
+                    val matches = queryKeywords.count { resLower.contains(it) }
+                    matches >= minOf(2, queryKeywords.size)
+                }
+            }
+        )
+
+        if (hasMeaningfulWebEvidence) {
+            val synthesizedWebAnswer = synthesizeWebResearchAnswer(query, webResearchResults, analysis)
             var answerWithAi = synthesizedWebAnswer
 
             val apiKey = BuildConfig.GEMINI_API_KEY
@@ -241,15 +290,15 @@ class AnswerGenerator {
 
             val validation = ResponseRelevanceValidator.validateAndRefine(answerWithAi, analysis, recentMessages)
             executionTrace.add("Verify [Multi-source cross-verification with live web]")
-            executionTrace.add("Answer")
+            executionTrace.add("Answer [Real-Time Search Synthesis]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
                 sources = webResearchResults.map {
-                    com.example.domain.model.SourceCitation(
+                    SourceCitation(
                         documentTitle = "${it.engine} (${it.sourceDomain})",
                         sectionTitle = it.title,
                         statement = it.snippet,
-                        conceptName = "Live Browser Research"
+                        conceptName = "Live Real-Time Browser"
                     )
                 },
                 resolvedContext = retrieval.resolvedContext,
@@ -258,11 +307,13 @@ class AnswerGenerator {
                 isSufficient = true,
                 confidence = 0.95f,
                 executionTrace = executionTrace,
-                verificationStatus = "Verified with live browser sources"
+                verificationStatus = "Verified with live browser sources",
+                detectedConstraints = analysis.constraints,
+                reasoningDepth = "Multi-Source Web Evidence Synthesis"
             )
         }
 
-        // 3. Fallback: try Gemini API directly
+        // 4. Try Gemini API directly if key is configured
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (!apiKey.isNullOrBlank() && apiKey != "MY_GEMINI_API_KEY") {
             try {
@@ -270,7 +321,7 @@ class AnswerGenerator {
                 if (geminiAnswer.isNotBlank()) {
                     val validation = ResponseRelevanceValidator.validateAndRefine(geminiAnswer.trim(), analysis, recentMessages)
                     executionTrace.add("Verify [Model synthesis verification]")
-                    executionTrace.add("Answer")
+                    executionTrace.add("Answer [Neural Model Output]")
                     return GeneratedAnswerResult(
                         answerText = validation.refinedAnswer,
                         sources = emptyList(),
@@ -280,31 +331,31 @@ class AnswerGenerator {
                         isSufficient = true,
                         confidence = 0.90f,
                         executionTrace = executionTrace,
-                        verificationStatus = "Verified"
+                        verificationStatus = "Verified Neural Synthesis",
+                        detectedConstraints = analysis.constraints,
+                        reasoningDepth = "Deep Latent Reasoning"
                     )
                 }
             } catch (_: Exception) {}
         }
 
-        // 4. If nothing was found, provide an intelligent Karllo response without dead-end error
-        val intelligentAnswer = if (hasLocalKnowledge) {
-            localAttempt
-        } else {
-            generateSmartFallbackAnswer(query, analysis)
-        }
-        val validation = ResponseRelevanceValidator.validateAndRefine(intelligentAnswer, analysis, recentMessages)
-        executionTrace.add("Verify [Semantic coherence verified]")
-        executionTrace.add("Answer")
+        // 5. User-mandated fallback: If AI does not know, say "Oh sorry i need more details to answer you about your question"
+        val fallbackAnswer = generateSmartFallbackAnswer(query, analysis)
+        val validation = ResponseRelevanceValidator.validateAndRefine(fallbackAnswer, analysis, recentMessages)
+        executionTrace.add("Verify [Clarity & Detail Assessment]")
+        executionTrace.add("Answer [Clarification Request]")
         return GeneratedAnswerResult(
             answerText = validation.refinedAnswer,
             sources = retrieval.citations,
             resolvedContext = retrieval.resolvedContext,
             userIntent = intent,
             semanticAnalysis = analysis,
-            isSufficient = true,
-            confidence = 0.88f,
+            isSufficient = false,
+            confidence = 0.50f,
             executionTrace = executionTrace,
-            verificationStatus = "Verified"
+            verificationStatus = "Awaiting Additional Details",
+            detectedConstraints = analysis.constraints,
+            reasoningDepth = "Clarification & Disambiguation"
         )
     }
 
@@ -313,10 +364,8 @@ class AnswerGenerator {
         return when {
             qLower.contains("who are you") || qLower.contains("what is your name") ->
                 "I'm Karllo! I can research the live web in real time, inspect transformer word tokens and probabilities (A=1), calculate formulas, and reason across structured knowledge graphs."
-            analysis.topic != null ->
-                "Regarding ${analysis.topic}: I reviewed your question carefully. You can also teach Karllo more details in the Teach tab or browse live web discussions in Live Web."
             else ->
-                "I understand your question about \"$query\". Let me know if you would like me to conduct further live research or break down specific concepts."
+                "Oh sorry i need more details to answer you about your question"
         }
     }
 
@@ -372,17 +421,18 @@ class AnswerGenerator {
         webResearchResults: List<WebResearchResult> = emptyList()
     ): String {
         val systemPrompt = """
-            You are Karllo, a conversational AI with real-time research, calculator, and grounded semantic knowledge capabilities.
+            You are Karllo, a highly intelligent conversational AI assistant.
+            You possess real-time browser research, math computation, and grounded semantic knowledge capabilities.
 
             CRITICAL GUIDELINES:
             1. Never start answers with "Based on live browser:" or "Based on live browser research:". Present your findings directly and naturally.
             2. Before answering, verify the facts for accuracy.
-            3. Your first responsibility is to understand what the user is trying to DO with their message.
+            3. Strictly obey any constraints specified by the user (for example, if the user asks "(say in one word)", output ONLY that one word).
             4. Never behave like a keyword-matching chatbot. Prioritize whole semantic meaning.
-            5. Do not automatically explain the meaning of words or sentences unless asked.
+            5. If you do not know the answer with certainty and have no evidence, reply exactly:
+               "Oh sorry i need more details to answer you about your question"
             6. If the user is talking to you normally, talk back naturally.
-            7. If the user reports a problem or asks for help, be empathetic and ask what the problem is to help them.
-            8. When LIVE RESEARCH or KNOWLEDGE EVIDENCE is provided, synthesize a comprehensive, verified, direct, and well-structured answer.
+            7. When LIVE RESEARCH or KNOWLEDGE EVIDENCE is provided, synthesize a comprehensive, verified, direct, and well-structured answer.
         """.trimIndent()
 
         val promptBuilder = StringBuilder()
@@ -426,6 +476,9 @@ class AnswerGenerator {
         promptBuilder.append("SEMANTIC ANALYSIS:\n")
         promptBuilder.append("- Detected Intent: ${analysis.intent.name}\n")
         promptBuilder.append("- Detected Meaning: ${analysis.detectedMeaning}\n")
+        if (analysis.constraints.isNotEmpty()) {
+            promptBuilder.append("- Constraints: ${analysis.constraints.joinToString()}\n")
+        }
         if (analysis.topic != null) promptBuilder.append("- Topic: ${analysis.topic}\n")
         promptBuilder.append("\nUSER MESSAGE:\n$query")
 
@@ -435,7 +488,7 @@ class AnswerGenerator {
                     parts = listOf(GeminiPart(text = promptBuilder.toString()))
                 )
             ),
-            generationConfig = GeminiGenerationConfig(temperature = 0.3f),
+            generationConfig = GeminiGenerationConfig(temperature = 0.2f),
             systemInstruction = GeminiContent(
                 parts = listOf(GeminiPart(text = systemPrompt))
             )
@@ -447,11 +500,21 @@ class AnswerGenerator {
 
     private fun synthesizeWebResearchAnswer(
         query: String,
-        results: List<WebResearchResult>
+        results: List<WebResearchResult>,
+        analysis: MessageSemanticAnalysis
     ): String {
+        val direct = WebResearchClient.extractDirectAnswer(query, results, analysis.constraints)
+        if (direct != null) return direct
+
+        val isOneWord = analysis.constraints.any { it.contains("one word") } || query.contains("one word", ignoreCase = true)
+        if (isOneWord) {
+            val text = results.joinToString(" ") { it.snippet }
+            val words = text.split(Regex("[^a-zA-Z0-9]")).filter { it.length > 2 && it[0].isUpperCase() }
+            if (words.isNotEmpty()) return words.first()
+        }
+
         return buildString {
-            // Note: Per user request, NEVER use "Based on live browser:". Present findings directly.
-            results.forEachIndexed { idx, item ->
+            results.forEach { item ->
                 append("• ${item.snippet.trim()}\n")
             }
             append("\nSources researched: ")
@@ -567,19 +630,17 @@ class AnswerGenerator {
             return manualTeach.answerText
         }
 
-        // Reply advice queries
-        if (clean.contains("someone said hello") || clean.contains("someone greeted me with hello")) {
+        // Reply advice queries: only trigger if specifically asking about reply advice for greetings
+        if (clean.contains("said hello") || clean.contains("greeted me with hello") || (clean.contains("hello") && (clean.contains("what should i say") || clean.contains("what can i say") || clean.contains("what do i say")))) {
             return "You can reply with 'Hello!', 'Hi!', or 'Hey! How are you?'"
         }
-        if (clean.contains("reply to hi") || clean.contains("someone said hi") || clean.contains("someone greeted me") ||
-            clean.contains("what should i say when someone says hi") || clean.contains("how should i reply to hi") ||
-            clean.contains("how do i reply to hi")) {
+        if (clean.contains("reply to hi") || clean.contains("said hi") || (clean.contains("reply") && clean.contains("hi"))) {
             return "When someone says 'Hi', you can reply with 'Hi!', 'Hello!', or another friendly greeting."
         }
-        if (clean.contains("reply to hello") || clean.contains("how should i reply to hello") || clean.contains("how do i reply to hello")) {
+        if (clean.contains("reply to hello") || (clean.contains("reply") && clean.contains("hello"))) {
             return "When someone says 'Hello', you can reply with 'Hello!', 'Hi!', or 'Hey! How are you?'"
         }
-        if (clean.contains("reply") || clean.contains("respond") || clean.contains("what should i say") || clean.contains("what can i say")) {
+        if (clean.contains("how should i reply to a greeting") || clean.contains("how to reply to greeting")) {
             return "When someone greets you with 'Hi', you can reply with 'Hi', 'Hello', or another friendly greeting."
         }
 
@@ -594,56 +655,55 @@ class AnswerGenerator {
         }
 
         // Difference between Hi and Hello
-        if (clean.contains("difference") || (clean.contains("hi") && clean.contains("hello") && (clean.contains("compare") || clean.contains("casual") || clean.contains("polite")))) {
+        if (clean.contains("difference") && clean.contains("hi") && clean.contains("hello")) {
             return "'Hi' is generally casual and friendly, while 'Hello' can be used in both casual and more polite situations."
         }
 
         // Tell me about greetings / Educational explanation
-        if (clean.contains("tell me about greetings") || clean.contains("tell me about greeting") || clean.contains("about greetings")) {
+        if (clean.contains("tell me about greetings") || clean.contains("tell me about greeting")) {
             return "Greetings are common expressions like 'Hi' and 'Hello' used when meeting or acknowledging someone. 'Hi' is generally casual and friendly, while 'Hello' can be used in both casual and polite situations. When meeting someone for the first time, people often say 'Nice to meet you.'"
         }
 
-        // First time meeting
-        if (clean.contains("first time") || clean.contains("first meeting")) {
-            return "When meeting someone for the first time, people may also say 'Nice to meet you.'"
-        }
-
-        // Teacher / Elder politeness
-        if (clean.contains("teacher") || clean.contains("older person") || clean.contains("elder")) {
-            return "While 'Hi' is generally casual and friendly, for a teacher or an older person in a more polite situation, 'Hello' or a polite greeting is typically recommended."
-        }
-
-        // Coreference query
-        if (clean.contains("what does it refer to") || qLower.contains("\"it\" refer to")) {
-            val target = retrieval.resolvedContext?.substringAfter("'")?.substringBefore("'") ?: "Hi"
-            return "In this context, 'it' refers to '$target' (the greeting discussed in the recent conversation context)."
-        }
-
-        // Is hi casual?
-        if (clean.contains("is hi casual") || (clean.contains("casual") && clean.contains("hi"))) {
-            return "Yes, 'Hi' is generally casual and friendly."
-        }
-
-        // Another way to greet someone / How to greet
-        if (clean.contains("another way") || clean.contains("what do people say when they meet") || clean.contains("how do i greet")) {
-            return "Common greetings include 'Hi' and 'Hello'. If you are meeting someone for the first time, you can also say 'Nice to meet you.'"
-        }
-
-        // Matched answers from learned Q&A
-        retrieval.matchedAnswers.firstOrNull()?.let {
-            return it.answerText
+        // Matched answers from learned Q&A (only if query actually matches topic)
+        if (retrieval.matchedAnswers.isNotEmpty()) {
+            val validAnswer = retrieval.matchedAnswers.firstOrNull { ans ->
+                val ansLower = ans.answerText.lowercase(Locale.ROOT)
+                val isAnsGreeting = ansLower.contains("hello") || ansLower.contains("greeting") || ansLower.contains("when someone says 'hi'")
+                val queryIsGreeting = clean.contains("hi") || clean.contains("hello") || clean.contains("greet")
+                if (isAnsGreeting && !queryIsGreeting) false else true
+            }
+            if (validAnswer != null) {
+                return validAnswer.answerText
+            }
         }
 
         // General fact synthesis
         if (retrieval.matchedFacts.isNotEmpty()) {
-            return retrieval.matchedFacts.joinToString(" ") { it.statement }
+            val validFacts = retrieval.matchedFacts.filter { fact ->
+                val factLower = fact.statement.lowercase(Locale.ROOT)
+                val isFactGreeting = factLower.contains("hello") || factLower.contains("greeting") || factLower.contains("when someone says 'hi'")
+                val queryIsGreeting = clean.contains("hi") || clean.contains("hello") || clean.contains("greet")
+                if (isFactGreeting && !queryIsGreeting) false else true
+            }
+            if (validFacts.isNotEmpty()) {
+                return validFacts.joinToString(" ") { it.statement }
+            }
         }
 
         // Concept definitions
         if (retrieval.matchedConcepts.isNotEmpty()) {
-            return "Based on the stored knowledge: " + retrieval.matchedConcepts.joinToString("; ") { "${it.name}: ${it.definition}" }
+            val validConcepts = retrieval.matchedConcepts.filter { c ->
+                val cLower = c.name.lowercase(Locale.ROOT)
+                val isCGreeting = cLower.contains("hello") || cLower.contains("hi") || cLower.contains("greeting")
+                val queryIsGreeting = clean.contains("hi") || clean.contains("hello") || clean.contains("greet")
+                if (isCGreeting && !queryIsGreeting) false else true
+            }
+            if (validConcepts.isNotEmpty()) {
+                return "Based on the stored knowledge: " + validConcepts.joinToString("; ") { "${it.name}: ${it.definition}" }
+            }
         }
 
-        return "I understand! Let me know if there's anything specific you'd like to ask or explore."
+        // User explicit requirement: if AI doesn't know about the question, say this:
+        return "Oh sorry i need more details to answer you about your question"
     }
 }

@@ -3,12 +3,9 @@ package com.example.ui.screens.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.util.Base64
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +16,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
@@ -31,8 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -73,11 +69,11 @@ fun ChatScreen(
     var newChatTopicInput by remember { mutableStateOf("") }
 
     val quickQuestions = listOf(
-        "Generate image of futuristic neon cyberpunk city in nebula",
+        "Who is the best football player of all time (say in one word)",
         "Who is Karllo?",
         "What is 25 * 18?",
         "Explain gravitational waves and black holes",
-        "Generate a picture of cosmic space astronaut exploring Mars",
+        "What is the capital of France?",
         "How do transformers predict words with probabilities?",
         "What does A = 1 token mapping mean?",
         "Latest discoveries from James Webb Space Telescope"
@@ -89,12 +85,18 @@ fun ChatScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(SpaceNebulaGradient))
-            .padding(horizontal = 14.dp)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 900.dp)
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 14.dp)
+        ) {
         // Chat Top Bar & Chat Session Adding Controls
         Row(
             modifier = Modifier
@@ -364,27 +366,12 @@ fun ChatScreen(
                     )
                 }
 
-                // Quick Image Generation Action
-                IconButton(
-                    onClick = {
-                        viewModel.updateChatInput("Generate image of ")
-                    },
-                    modifier = Modifier.size(28.dp).testTag("quick_generate_image_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Image,
-                        contentDescription = "Generate Image",
-                        tint = DeepNebulaMagenta,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-
                 TextField(
                     value = chatInput,
                     onValueChange = { viewModel.updateChatInput(it) },
                     placeholder = {
                         Text(
-                            text = "Ask Karllo or 'Generate image of ...'",
+                            text = "Ask Karllo anything, research live web, or calculate...",
                             color = StarlightTertiary,
                             fontSize = 13.sp
                         )
@@ -475,6 +462,7 @@ fun ChatScreen(
             },
             containerColor = SpaceCard
         )
+    }
     }
 }
 
@@ -706,13 +694,22 @@ fun KarlloChatMessageItem(
                         traceList.add(traceArr.getString(i))
                     }
                 }
+                val constraintsArr = obj.optJSONArray("constraints")
+                val constraintsList = mutableListOf<String>()
+                if (constraintsArr != null) {
+                    for (i in 0 until constraintsArr.length()) {
+                        constraintsList.add(constraintsArr.getString(i))
+                    }
+                }
                 mapOf(
                     "intent" to obj.optString("intent", "GENERAL"),
                     "topic" to obj.optString("topic", "General"),
                     "detectedMeaning" to obj.optString("detectedMeaning", "Exploration"),
                     "verificationStatus" to obj.optString("verificationStatus", "Verified"),
-                    "executionTrace" to traceList,
-                    "generatedImageBase64" to obj.optString("generatedImageBase64", "")
+                    "reasoningDepth" to obj.optString("reasoningDepth", "Deep Multi-Hop Synthesis"),
+                    "knowledgeDomain" to obj.optString("knowledgeDomain", "General Knowledge"),
+                    "constraints" to constraintsList,
+                    "executionTrace" to traceList
                 )
             } catch (_: Exception) {
                 null
@@ -727,10 +724,10 @@ fun KarlloChatMessageItem(
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         if (isUser) {
-            // User Space Comm Bubble
+            // User Space Comm Bubble (Adaptive width up to 540dp for laptops)
             Box(
                 modifier = Modifier
-                    .widthIn(max = 320.dp)
+                    .widthIn(max = 540.dp)
                     .clip(
                         RoundedCornerShape(
                             topStart = 20.dp,
@@ -790,10 +787,10 @@ fun KarlloChatMessageItem(
                     ),
                     colors = CardDefaults.cardColors(containerColor = SpaceCard),
                     border = BorderStroke(1.dp, Brush.linearGradient(CardBorderGradient)),
-                    modifier = Modifier.widthIn(max = 330.dp)
+                    modifier = Modifier.widthIn(max = 640.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
-                        // Header: Karllo + Intent + Verified badge
+                        // Header: Karllo + Knowledge Domain + Verification badge
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -816,6 +813,23 @@ fun KarlloChatMessageItem(
                                         .clip(CircleShape)
                                         .background(OrbitEmerald)
                                 )
+
+                                val domain = (analysisData?.get("knowledgeDomain") as? String)
+                                if (!domain.isNullOrBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = CosmicCyan.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.5.dp, CosmicCyan.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = domain,
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CosmicCyan,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                             }
 
                             // Verification Badge
@@ -840,6 +854,31 @@ fun KarlloChatMessageItem(
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = OrbitEmeraldGlow
+                                    )
+                                }
+                            }
+                        }
+
+                        // Constraints Badge if detected
+                        @Suppress("UNCHECKED_CAST")
+                        val constraintsList = (analysisData?.get("constraints") as? List<String>) ?: emptyList()
+                        if (constraintsList.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = SolarFlareGold.copy(alpha = 0.15f),
+                                    border = BorderStroke(0.8.dp, SolarFlareGold.copy(alpha = 0.5f))
+                                ) {
+                                    Text(
+                                        text = "✓ Constraint Satisfied: ${constraintsList.joinToString()}",
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SolarFlareGold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
@@ -871,7 +910,7 @@ fun KarlloChatMessageItem(
                                         modifier = Modifier.size(12.dp)
                                     )
                                     Text(
-                                        text = "Understand → Decide tools → Verify → Answer",
+                                        text = "Understand → Multi-Source Dispatch → Verify → Output",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = CosmicCyan
@@ -902,7 +941,7 @@ fun KarlloChatMessageItem(
                                         "User request",
                                         "Understand",
                                         "Decide what tools are needed",
-                                        "Browser / Knowledge / Calculator / etc.",
+                                        "Real-Time Browser / Knowledge / Calculator",
                                         "Collect information",
                                         "Verify",
                                         "Answer."
@@ -937,42 +976,6 @@ fun KarlloChatMessageItem(
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-
-                        // Generated Image Rendering if present
-                        val imgBase64 = (analysisData?.get("generatedImageBase64") as? String)
-                        val imageBitmap = remember(imgBase64) {
-                            if (!imgBase64.isNullOrBlank()) {
-                                try {
-                                    val bytes = Base64.decode(imgBase64, Base64.DEFAULT)
-                                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                    bmp?.asImageBitmap()
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            } else null
-                        }
-
-                        if (imageBitmap != null) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = SpaceSurface,
-                                border = BorderStroke(1.5.dp, CosmicCyan.copy(alpha = 0.5f)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                            ) {
-                                Image(
-                                    bitmap = imageBitmap,
-                                    contentDescription = "Karllo Generated Image",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(240.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                        }
 
                         // Assistant Text Response
                         Text(
@@ -1115,7 +1118,7 @@ fun KarlloChatMessageItem(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.MenuBook,
+                                        imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                         contentDescription = null,
                                         tint = CosmicCyan,
                                         modifier = Modifier.size(13.dp)

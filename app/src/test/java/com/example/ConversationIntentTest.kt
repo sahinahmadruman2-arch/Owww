@@ -138,5 +138,19 @@ class ConversationIntentTest {
         // TEST 10: User: Tell me about greetings. -> Expected: Educational explanation
         val r10 = answerGenerator.generateAnswer("Tell me about greetings.", RetrievalResult(query = "Tell me about greetings.", userIntent = UserIntent.LEARNING_EXPLANATION))
         assertTrue(r10.answerText.contains("Greetings") && r10.answerText.contains("casual") && r10.answerText.contains("polite"))
+
+        // TEST 11: Real-time understanding with constraint: "Who is the best football player of all time (say in one word)"
+        val r11 = answerGenerator.generateAnswer(
+            "Who is the best football player of all time (say in one word)",
+            RetrievalResult(query = "Who is the best football player of all time (say in one word)", userIntent = UserIntent.QUESTION)
+        )
+        assertEquals("Messi", r11.answerText)
+
+        // TEST 12: Unknown query fallback -> exact mandated sentence
+        val r12 = answerGenerator.generateAnswer(
+            "What is the ultra quantum flux index of planet ZX994?",
+            RetrievalResult(query = "What is the ultra quantum flux index of planet ZX994?", userIntent = UserIntent.QUESTION)
+        )
+        assertEquals("Oh sorry i need more details to answer you about your question", r12.answerText)
     }
 }

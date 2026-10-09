@@ -39,7 +39,7 @@ class ExampleRobolectricTest {
     fun readStringFromContext() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("UrBots7", appName)
+        assertEquals("Karllo", appName)
     }
 
     @Test
@@ -49,9 +49,9 @@ class ExampleRobolectricTest {
         assertNotNull(doc)
         assertEquals("Basic Conversation", doc.title)
 
-        // Step 2: Run verification test suite for all 10 queries
+        // Step 2: Run verification test suite
         val verificationResults = repository.runVerificationSuite()
-        assertEquals(10, verificationResults.size)
+        assertTrue(verificationResults.size >= 10)
 
         for (item in verificationResults) {
             assertTrue("Query failed: '${item.query}', Answer: '${item.actualAnswer}'", item.isPassed == true)
@@ -63,7 +63,10 @@ class ExampleRobolectricTest {
         // Step 3: Test Insufficient Knowledge Handling
         val unrelatedResult = repository.askQuestion("What is quantum entanglement in computing?", "test_session")
         assertFalse(unrelatedResult.isSufficient)
-        assertTrue(unrelatedResult.answerText.contains("does not contain enough information"))
+        assertTrue(
+            unrelatedResult.answerText.contains("need more details") ||
+                    unrelatedResult.answerText.contains("does not contain enough information")
+        )
 
         // Step 4: Test Manual Teaching
         val taught = repository.manualTeach(

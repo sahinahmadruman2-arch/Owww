@@ -224,8 +224,16 @@ object SemanticUnderstandingEngine {
             )
         }
 
+        val extractedConstraints = extractConstraints(rawQuery)
+        val domain = extractKnowledgeDomain(clean)
+
         // Category L: GENERAL QUESTION
         if (trimmed.endsWith("?") || isQuestionStarter(clean)) {
+            val meaning = if (extractedConstraints.isNotEmpty()) {
+                "User is asking an informational question with constraint [${extractedConstraints.joinToString()}]."
+            } else {
+                "User is asking an informational question."
+            }
             return MessageSemanticAnalysis(
                 rawText = rawQuery,
                 intent = UserIntent.QUESTION,
@@ -237,7 +245,10 @@ object SemanticUnderstandingEngine {
                 conversationGoal = "Inquire for information",
                 referencedEntities = referencedEntities,
                 confidence = "High",
-                detectedMeaning = "User is asking an informational question."
+                detectedMeaning = meaning,
+                constraints = extractedConstraints,
+                reasoningDepth = if (extractedConstraints.isNotEmpty()) "Constrained Multi-Hop Reasoning" else "Deep Multi-Hop Synthesis",
+                knowledgeDomain = domain
             )
         }
 
@@ -253,7 +264,10 @@ object SemanticUnderstandingEngine {
             conversationGoal = "Share statement or message",
             referencedEntities = referencedEntities,
             confidence = "Medium",
-            detectedMeaning = "User is sharing a statement with Karllo."
+            detectedMeaning = "User is sharing a statement with Karllo.",
+            constraints = extractedConstraints,
+            reasoningDepth = "Standard",
+            knowledgeDomain = domain
         )
     }
 
@@ -408,9 +422,50 @@ object SemanticUnderstandingEngine {
         return "neutral"
     }
 
-    // --- Entity and Topic Extraction ---
+    // --- Entity, Constraint, Domain and Topic Extraction ---
+
+    fun extractConstraints(rawQuery: String): List<String> {
+        val q = rawQuery.lowercase(Locale.ROOT)
+        val list = mutableListOf<String>()
+        if (q.contains("say in one word") || q.contains("in one word") || q.contains("one word")) {
+            list.add("say in one word")
+        }
+        if (q.contains("briefly") || q.contains("in short") || q.contains("short answer")) {
+            list.add("briefly")
+        }
+        if (q.contains("bullet points") || q.contains("as a list")) {
+            list.add("bullet points")
+        }
+        if (q.contains("yes or no")) {
+            list.add("yes or no")
+        }
+        return list
+    }
+
+    private fun extractKnowledgeDomain(clean: String): String {
+        return when {
+            clean.contains("football") || clean.contains("soccer") || clean.contains("player") ||
+            clean.contains("ball") || clean.contains("sports") || clean.contains("basketball") ||
+            clean.contains("nba") || clean.contains("fifa") || clean.contains("messi") || clean.contains("ronaldo") -> "Sports & Athletics"
+            clean.contains("planet") || clean.contains("space") || clean.contains("star") || clean.contains("galaxy") ||
+            clean.contains("physics") || clean.contains("gravity") || clean.contains("atom") || clean.contains("science") -> "Science & Astrophysics"
+            clean.contains("country") || clean.contains("capital") || clean.contains("city") || clean.contains("continent") ||
+            clean.contains("river") || clean.contains("ocean") || clean.contains("mountain") -> "Geography & Earth"
+            clean.contains("history") || clean.contains("war") || clean.contains("president") || clean.contains("century") ||
+            clean.contains("ancient") || clean.contains("king") || clean.contains("empire") -> "History & Civilization"
+            clean.contains("code") || clean.contains("programming") || clean.contains("android") || clean.contains("kotlin") ||
+            clean.contains("computer") || clean.contains("software") || clean.contains("ai") || clean.contains("linux") -> "Computer Science & Tech"
+            clean.contains("math") || clean.contains("calculate") || clean.contains("number") || clean.contains("sum") -> "Mathematics & Logic"
+            clean.contains("greeting") || clean.contains("hi") || clean.contains("hello") -> "Linguistics & Social Communication"
+            clean.contains("roblox") || clean.contains("game") -> "Gaming & Simulation"
+            else -> "General Knowledge"
+        }
+    }
 
     private fun extractTopic(clean: String, contextSubject: String?, entities: List<String>): String? {
+        if (clean.contains("best football player") || clean.contains("football player")) return "Greatest Football Player of All Time"
+        if (clean.contains("football") || clean.contains("soccer")) return "Football"
+        if (clean.contains("capital of")) return "World Geography"
         if (clean.contains("roblox")) return "Roblox game"
         if (clean.contains("game")) return "Game"
         if (clean.contains("greeting") || clean.contains("greetings")) return "Greetings"
@@ -422,6 +477,12 @@ object SemanticUnderstandingEngine {
 
     private fun extractEntities(clean: String, contextSubject: String?): List<String> {
         val list = mutableListOf<String>()
+        if (clean.contains("football") || clean.contains("soccer")) list.add("Football")
+        if (clean.contains("best") || clean.contains("goat") || clean.contains("greatest")) list.add("GOAT / Top Ranking")
+        if (clean.contains("messi")) list.add("Lionel Messi")
+        if (clean.contains("ronaldo")) list.add("Cristiano Ronaldo")
+        if (clean.contains("pele")) list.add("Pelé")
+        if (clean.contains("maradona")) list.add("Diego Maradona")
         if (clean.contains("roblox")) list.add("Roblox")
         if (clean.contains("game")) list.add("Game")
         if (clean.contains("hi")) list.add("Hi")

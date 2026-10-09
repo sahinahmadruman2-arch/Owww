@@ -249,10 +249,10 @@ class UrBotsRepository(
             put("speechAct", sem?.speechAct ?: "statement")
             put("liveSourcesCount", liveCitations.size)
             put("verificationStatus", result.verificationStatus)
+            put("reasoningDepth", result.reasoningDepth)
+            put("knowledgeDomain", sem?.knowledgeDomain ?: "General Knowledge")
+            put("constraints", JSONArray(result.detectedConstraints))
             put("executionTrace", JSONArray(result.executionTrace))
-            if (result.generatedImageBase64 != null) {
-                put("generatedImageBase64", result.generatedImageBase64)
-            }
         }.toString()
 
         // 4. Record assistant message
@@ -306,6 +306,12 @@ class UrBotsRepository(
             put("relevantKnowledgeCount", result.sources.size)
             put("confidence", sem?.confidence ?: "High")
             put("speechAct", sem?.speechAct ?: "statement")
+            put("liveSourcesCount", 0)
+            put("verificationStatus", result.verificationStatus)
+            put("reasoningDepth", result.reasoningDepth)
+            put("knowledgeDomain", sem?.knowledgeDomain ?: "General Knowledge")
+            put("constraints", JSONArray(result.detectedConstraints))
+            put("executionTrace", JSONArray(result.executionTrace))
         }.toString()
 
         val assistantMsg = ConversationMessageEntity(
@@ -360,7 +366,9 @@ class UrBotsRepository(
             VerificationTestItem(7, "What is the difference between hi and hello?", "Explanation of casual vs polite (knowledge)"),
             VerificationTestItem(8, "Hi, how are you?", "Natural conversational response"),
             VerificationTestItem(9, "Someone just said hello to me. What should I say?", "Natural reply suggestions"),
-            VerificationTestItem(10, "Tell me about greetings.", "Educational explanation of greetings")
+            VerificationTestItem(10, "Tell me about greetings.", "Educational explanation of greetings"),
+            VerificationTestItem(11, "Who is the best football player of all time (say in one word)", "Output: Messi (One-word constraint satisfied)"),
+            VerificationTestItem(12, "What is the secret frequency of X-499292?", "Output: 'Oh sorry i need more details to answer you about your question'")
         )
 
         val results = mutableListOf<VerificationTestItem>()
@@ -425,6 +433,14 @@ class UrBotsRepository(
                     answerLower.contains("greetings") &&
                             (answerLower.contains("hi") || answerLower.contains("hello")) &&
                             answerLower.contains("casual")
+                }
+                11 -> {
+                    // TEST 11: Who is the best football player of all time (say in one word) -> Expected: Messi
+                    answerResult.answerText.trim().equals("Messi", ignoreCase = true)
+                }
+                12 -> {
+                    // TEST 12: Unknown query -> Mandated fallback sentence
+                    answerResult.answerText.trim() == "Oh sorry i need more details to answer you about your question"
                 }
                 else -> true
             }

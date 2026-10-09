@@ -13,6 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
+import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -145,7 +148,7 @@ fun TeachScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val modes = listOf(
-                    Triple(0, "Batch Q&A (100+)", Icons.Outlined.FormatListBulleted),
+                    Triple(0, "Batch Q&A (100+)", Icons.AutoMirrored.Outlined.FormatListBulleted),
                     Triple(1, "Single Q&A", Icons.Outlined.School),
                     Triple(2, "Vault (${storedEntries.size})", Icons.Outlined.Inventory2)
                 )
@@ -201,7 +204,7 @@ fun TeachScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(Icons.Outlined.Rule, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(16.dp))
+                        Icon(Icons.AutoMirrored.Outlined.Rule, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(16.dp))
                         Text(
                             text = "Manual Training Format Rules",
                             style = MaterialTheme.typography.labelLarge,
@@ -501,7 +504,7 @@ fun TeachScreen(
                     .testTag("teach_question_input"),
                 singleLine = true,
                 leadingIcon = {
-                    Icon(Icons.Default.HelpOutline, contentDescription = null, tint = ElectricCyan)
+                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, tint = ElectricCyan)
                 },
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(

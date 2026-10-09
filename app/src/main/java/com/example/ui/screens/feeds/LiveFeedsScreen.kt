@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -496,7 +497,7 @@ fun LiveFeedCard(
                     ) {
                         Text(text = "Open Source", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = ElectricCyan)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(13.dp), tint = ElectricCyan)
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(13.dp), tint = ElectricCyan)
                     }
                 }
             }

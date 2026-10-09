@@ -53,7 +53,10 @@ data class MessageSemanticAnalysis(
     val conversationGoal: String = "Communicate with Karllo",
     val referencedEntities: List<String> = emptyList(), // resolved "it", "that", "the game", etc.
     val confidence: String = "High",
-    val detectedMeaning: String
+    val detectedMeaning: String,
+    val constraints: List<String> = emptyList(), // e.g. "say in one word", "bullet points"
+    val reasoningDepth: String = "High",
+    val knowledgeDomain: String = "General"
 )
 
 data class SourceCitation(
@@ -91,7 +94,8 @@ data class GeneratedAnswerResult(
     val conflictDescription: String? = null,
     val executionTrace: List<String> = emptyList(),
     val verificationStatus: String = "Verified",
-    val generatedImageBase64: String? = null
+    val detectedConstraints: List<String> = emptyList(),
+    val reasoningDepth: String = "Deep Multi-Hop Synthesis"
 )
 
 data class PipelineStageProgress(

@@ -12,10 +12,10 @@ class SemanticRetrievalEngine(
 ) {
     // Semantic synonym lexicon for high-recall concept and intent expansion
     private val synonymClusters = mapOf(
-        "greet" to setOf("greet", "greeting", "greetings", "hi", "hello", "hey", "meet", "saying hello", "welcome"),
+        "greet" to setOf("greet", "greeting", "greetings", "hi", "hello", "hey", "saying hello", "welcome"),
         "hi" to setOf("hi", "casual greeting", "informal", "friendly greeting", "greeting"),
         "hello" to setOf("hello", "polite", "casual", "formal", "greeting"),
-        "reply" to setOf("reply", "respond", "response", "say", "say back", "answer", "answering", "return"),
+        "reply" to setOf("reply", "respond", "response", "replying"),
         "casual" to setOf("casual", "informal", "friendly", "relaxed", "colloquial"),
         "polite" to setOf("polite", "formal", "respectful", "teacher", "elder", "older person", "professional"),
         "difference" to setOf("difference", "compare", "comparison", "contrast", "distinguish", "differ", "vs", "versus"),
@@ -83,7 +83,7 @@ class SemanticRetrievalEngine(
         val matchedQuestionIds = mutableMapOf<String, Float>()
         for (variation in allVariations) {
             val score = computeSemanticSimilarity(searchTokens, variation.variationText)
-            if (score > 0.35f) {
+            if (score >= 0.50f) {
                 val currentScore = matchedQuestionIds[variation.learnedQuestionId] ?: 0f
                 if (score > currentScore) {
                     matchedQuestionIds[variation.learnedQuestionId] = score
@@ -93,7 +93,7 @@ class SemanticRetrievalEngine(
 
         for (question in allQuestions) {
             val score = computeSemanticSimilarity(searchTokens, question.question)
-            if (score > 0.35f) {
+            if (score >= 0.50f) {
                 val currentScore = matchedQuestionIds[question.id] ?: 0f
                 if (score > currentScore) {
                     matchedQuestionIds[question.id] = score
@@ -105,7 +105,7 @@ class SemanticRetrievalEngine(
         val manualEntries = dao.getAllManualTrainingEntries()
         for (manual in manualEntries) {
             val score = computeSemanticSimilarity(searchTokens, manual.question)
-            if (score > 0.35f) {
+            if (score >= 0.50f) {
                 val matchQ = allQuestions.find { it.question.equals(manual.question, ignoreCase = true) }
                 if (matchQ != null) {
                     val currentScore = matchedQuestionIds[matchQ.id] ?: 0f
@@ -294,10 +294,18 @@ class SemanticRetrievalEngine(
         // Additional boost if key phrase matches
         val queryPhrase = queryTokens.joinToString(" ")
         val candLower = candidateText.lowercase(Locale.ROOT)
+
+        // Strict guard: If candidate is about greeting/hello/hi but query is about sports, football, science, etc.
+        val candIsGreeting = candLower.contains("greeting") || candLower.contains("hello") || candLower.contains("hi")
+        val queryMentionsGreeting = queryTokens.any { it == "hi" || it == "hello" || it == "greet" || it == "greeting" || it == "greetings" }
+        if (candIsGreeting && !queryMentionsGreeting) {
+            return 0f
+        }
+
         var boost = 0f
-        if (candLower.contains("reply") && (queryTokens.contains("reply") || queryTokens.contains("say"))) boost += 0.2f
+        if (candLower.contains("reply") && queryTokens.contains("reply")) boost += 0.2f
         if (candLower.contains("casual") && queryTokens.contains("casual")) boost += 0.2f
-        if (candLower.contains("first time") && (queryTokens.contains("first time") || queryTokens.contains("meet"))) boost += 0.2f
+        if (candLower.contains("first time") && queryTokens.contains("first time")) boost += 0.2f
         if ((candLower.contains("exhaust") || candLower.contains("tired")) && (queryTokens.contains("exhaust") || queryTokens.contains("exhausted") || queryTokens.contains("tired"))) boost += 0.35f
         if (candLower.contains("full") && (queryTokens.contains("full") || queryTokens.contains("eat") || queryTokens.contains("food"))) boost += 0.35f
         if (candLower.contains("help") && (queryTokens.contains("help") || queryTokens.contains("hand") || queryTokens.contains("assist"))) boost += 0.35f

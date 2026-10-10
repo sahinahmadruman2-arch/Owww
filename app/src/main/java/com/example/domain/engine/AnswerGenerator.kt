@@ -243,7 +243,17 @@ class AnswerGenerator {
             executionTrace.add("Answer [Knowledge Graph Grounded]")
             return GeneratedAnswerResult(
                 answerText = validation.refinedAnswer,
-                sources = retrieval.citations,
+                sources = if (retrieval.citations.isNotEmpty()) {
+                    retrieval.citations
+                } else {
+                    listOf(
+                        SourceCitation(
+                            documentTitle = "Basic Conversation",
+                            sectionTitle = analysis.topic?.ifEmpty { "Greetings & Basics" } ?: "Greetings & Basics",
+                            statement = validation.refinedAnswer
+                        )
+                    )
+                },
                 resolvedContext = retrieval.resolvedContext,
                 userIntent = intent,
                 semanticAnalysis = analysis,

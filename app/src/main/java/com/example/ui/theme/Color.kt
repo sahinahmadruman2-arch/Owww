@@ -11,6 +11,7 @@ val SpaceVoid = Color(0xFF030712)         // Deepest interstellar black
 val SpaceBackground = Color(0xFF080D1A)   // Galactic dark navy
 val SpaceSurface = Color(0xFF0F172A)      // Deep shuttle surface
 val SpaceCard = Color(0xFF131D36)         // Nebula observation bay card
+val SpaceCardSurface = SpaceCard
 val SpaceCardBorder = Color(0xFF1E2D4E)   // Constellation grid border
 val SpaceCardBorderGlow = Color(0xFF38BDF8)
 

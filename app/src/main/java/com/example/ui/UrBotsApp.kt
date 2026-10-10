@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.screens.analysis.AnalysisScreen
+import com.example.ui.screens.autolearning.AutoLearningDashboardScreen
 import com.example.ui.screens.chat.ChatScreen
 import com.example.ui.screens.feeds.LiveFeedsScreen
 import com.example.ui.screens.knowledge.KnowledgeScreen
@@ -34,6 +35,8 @@ import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.teach.TeachScreen
 import com.example.ui.screens.training.TrainingScreen
 import com.example.ui.theme.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 data class NavTabItem(
     val tab: UrBotsTab,
@@ -50,6 +53,9 @@ fun UrBotsApp(viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.vi
     val stats by viewModel.dashboardStats.collectAsState()
     val versions by viewModel.versions.collectAsState()
     val latestVersion = versions.maxOfOrNull { it.versionNumber } ?: 1
+
+    var showHeaderMenu by remember { mutableStateOf(false) }
+    var showAutoLearningDashboard by remember { mutableStateOf(false) }
 
     val tabItems = listOf(
         NavTabItem(UrBotsTab.CHAT, "Cosmos", Icons.Default.ChatBubble, Icons.Outlined.ChatBubbleOutline),
@@ -164,6 +170,32 @@ fun UrBotsApp(viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.vi
                                 modifier = Modifier.testTag("nav_rail_${item.title.lowercase()}")
                             )
                         }
+
+                        // Auto Learning shortcut for laptop/wide screens
+                        NavigationRailItem(
+                            selected = showAutoLearningDashboard,
+                            onClick = { showAutoLearningDashboard = true },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "Auto Learning",
+                                    tint = CosmicCyanGlow,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = "Auto Learn",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CosmicCyanGlow
+                                )
+                            },
+                            colors = NavigationRailItemDefaults.colors(
+                                indicatorColor = SupernovaPurpleContainer
+                            ),
+                            modifier = Modifier.testTag("nav_rail_auto_learning")
+                        )
                     }
                 }
 
@@ -269,7 +301,7 @@ fun UrBotsApp(viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.vi
                                     shape = RoundedCornerShape(10.dp),
                                     color = SupernovaPurpleContainer.copy(alpha = 0.7f),
                                     border = BorderStroke(1.dp, SupernovaPurple.copy(alpha = 0.5f)),
-                                    modifier = Modifier.padding(end = 8.dp)
+                                    modifier = Modifier.padding(end = 4.dp)
                                 ) {
                                     Text(
                                         text = currentTab.title.uppercase(),
@@ -279,6 +311,51 @@ fun UrBotsApp(viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.vi
                                         letterSpacing = 0.5.sp,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
+                                }
+
+                                // Three-Dot Menu
+                                Box {
+                                    IconButton(
+                                        onClick = { showHeaderMenu = true },
+                                        modifier = Modifier.testTag("app_header_more_menu")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = "More options",
+                                            tint = StarlightPrimary
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showHeaderMenu,
+                                        onDismissRequest = { showHeaderMenu = false },
+                                        modifier = Modifier.background(SpaceCardSurface)
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AutoAwesome,
+                                                        contentDescription = null,
+                                                        tint = CosmicCyanGlow,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Text(
+                                                        text = "Auto Learning",
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = StarlightPrimary
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                showHeaderMenu = false
+                                                showAutoLearningDashboard = true
+                                            },
+                                            modifier = Modifier.testTag("menu_item_auto_learning")
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
@@ -389,6 +466,18 @@ fun UrBotsApp(viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.vi
                     }
                 }
             }
+        }
+    }
+
+    if (showAutoLearningDashboard) {
+        Dialog(
+            onDismissRequest = { showAutoLearningDashboard = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            AutoLearningDashboardScreen(
+                viewModel = viewModel,
+                onClose = { showAutoLearningDashboard = false }
+            )
         }
     }
 }

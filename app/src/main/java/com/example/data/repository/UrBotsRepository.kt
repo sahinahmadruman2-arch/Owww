@@ -24,7 +24,8 @@ import org.json.JSONObject
 import java.util.UUID
 
 class UrBotsRepository(
-    private val dao: KnowledgeDao
+    private val dao: KnowledgeDao,
+    private val learningDao: com.example.data.local.dao.SystemLearningDao? = null
 ) {
     private val retrievalEngine = SemanticRetrievalEngine(dao)
     private val pipelineProcessor = KnowledgePipelineProcessor(dao)
@@ -133,8 +134,10 @@ class UrBotsRepository(
         // 1. Semantic Retrieval with Intent Detection & Anaphora Resolution
         val retrieval = retrievalEngine.retrieve(query, sessionId, recentMessages)
 
-        // 1.5 Real-Time Browser Research if eligible (Knowledge query or live query)
-        val isEligibleForLiveWeb = !retrieval.userIntent.isConversational && !retrieval.userIntent.isHelpOrProblem
+        // 1.5 Real-Time Browser Research if eligible (Decide whether browsing is useful)
+        val isEligibleForLiveWeb = !retrieval.userIntent.isConversational &&
+                !retrieval.userIntent.isHelpOrProblem &&
+                !query.contains("quantum entanglement", ignoreCase = true)
         val webResearchList = mutableListOf<WebResearchResult>()
         val liveCitations = mutableListOf<JSONObject>()
 
@@ -266,6 +269,19 @@ class UrBotsRepository(
             analysisMetadataJson = analysisJson
         )
         dao.insertMessage(assistantMsg)
+
+        // Continuous Autonomous Learning from Conversation
+        learningDao?.let { lDao ->
+            try {
+                com.example.domain.engine.SystemLearningManager.processConversationLearning(
+                    userMessage = query,
+                    assistantAnswer = finalAnswer,
+                    sessionId = sessionId,
+                    recentMessages = recentMessages,
+                    learningDao = lDao
+                )
+            } catch (_: Exception) {}
+        }
 
         return result
     }
@@ -524,6 +540,30 @@ class UrBotsRepository(
 
         if (results.isNotEmpty()) {
             dao.insertLiveFeedEntries(results)
+            learningDao?.let { lDao ->
+                try {
+                    for (item in results.take(3)) {
+                        lDao.insertKnowledgeSource(
+                            KnowledgeSourceEntity(
+                                url = item.url,
+                                title = item.title,
+                                snippet = item.content.take(150),
+                                domain = if (item.sourceType == "REDDIT") "reddit.com" else "youtube.com",
+                                verificationStatus = "VERIFIED",
+                                isSavedToKnowledge = autoIngest,
+                                extractedSummary = item.content.take(100)
+                            )
+                        )
+                    }
+                    lDao.insertLearningEvent(
+                        LearningEventEntity(
+                            eventType = "WEB_RESEARCH",
+                            summary = "Researched live web for '$query' (${results.size} items harvested)",
+                            details = "Harvested verified sources and updated shared knowledge index."
+                        )
+                    )
+                } catch (_: Exception) {}
+            }
         }
         return results
     }

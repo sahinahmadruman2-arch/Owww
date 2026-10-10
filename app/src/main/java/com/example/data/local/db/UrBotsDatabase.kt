@@ -21,13 +21,26 @@ import com.example.data.local.entity.*
         TrainingRunEntity::class,
         KnowledgeVersionEntity::class,
         ManualTrainingEntryEntity::class,
-        LiveFeedEntryEntity::class
+        LiveFeedEntryEntity::class,
+        UserMemoryEntity::class,
+        UserSkillProfileEntity::class,
+        LearningCandidateEntity::class,
+        SharedKnowledgeEntity::class,
+        KnowledgeSourceEntity::class,
+        LearningTaskEntity::class,
+        LearningEventEntity::class,
+        ResponseEvaluationEntity::class,
+        DiagnosticReportEntity::class,
+        ProposedPatchEntity::class,
+        AuditLogEntity::class,
+        LearningEngineSettingsEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class UrBotsDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
+    abstract fun systemLearningDao(): com.example.data.local.dao.SystemLearningDao
 
     companion object {
         @Volatile

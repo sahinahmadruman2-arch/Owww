@@ -35,7 +35,8 @@ data class DashboardStats(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = UrBotsDatabase.getDatabase(application)
-    private val repository = UrBotsRepository(database.knowledgeDao())
+    val learningDao = database.systemLearningDao()
+    private val repository = UrBotsRepository(database.knowledgeDao(), learningDao)
 
     private val _currentTab = MutableStateFlow(UrBotsTab.CHAT)
     val currentTab: StateFlow<UrBotsTab> = _currentTab.asStateFlow()
@@ -416,6 +417,208 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearLiveFeeds() {
         viewModelScope.launch {
             repository.clearLiveFeeds()
+        }
+    }
+
+    // Auto Learning System Flows
+    val learningSettings = learningDao.getSettingsFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
+    val userMemories = learningDao.getUserMemoriesFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val userSkillProfiles = learningDao.getUserSkillProfilesFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val learningCandidates = learningDao.getAllLearningCandidatesFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val sharedKnowledge = learningDao.getAllSharedKnowledgeFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val knowledgeSources = learningDao.getAllKnowledgeSourcesFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val learningTasks = learningDao.getAllLearningTasksFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val learningEvents = learningDao.getRecentLearningEventsFlow(100).stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val responseEvaluations = learningDao.getResponseEvaluationsFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val diagnosticReports = learningDao.getDiagnosticReportsFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val proposedPatches = learningDao.getProposedPatchesFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val auditLogs = learningDao.getAuditLogsFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
+    val queuedTasksCount = learningDao.getQueuedTaskCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val runningTasksCount = learningDao.getRunningTaskCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val completedTasksCount = learningDao.getCompletedTaskCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val failedTasksCount = learningDao.getFailedTaskCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val pendingCandidatesCount = learningDao.getPendingCandidateCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val sharedKnowledgeCount = learningDao.getSharedKnowledgeCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+    val userMemoriesCount = learningDao.getUserMemoryCountFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0
+    )
+
+    fun toggleAutoLearning(enabled: Boolean) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.toggleAutoLearning(learningDao, enabled)
+        }
+    }
+
+    fun toggleWebLearning(enabled: Boolean) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.toggleWebLearning(learningDao, enabled)
+        }
+    }
+
+    fun toggleMemoryExtraction(enabled: Boolean) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.toggleMemoryExtraction(learningDao, enabled)
+        }
+    }
+
+    fun deleteUserMemory(id: String) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.deleteMemory(id, learningDao)
+        }
+    }
+
+    fun editUserMemory(memory: UserMemoryEntity) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.editMemory(memory, learningDao)
+        }
+    }
+
+    fun addUserMemory(category: String, key: String, value: String) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.addMemory(category, key, value, learningDao)
+        }
+    }
+
+    fun deleteSkillProfile(id: String) {
+        viewModelScope.launch {
+            learningDao.deleteUserSkillProfileById(id)
+        }
+    }
+
+    fun reviewCandidate(candidateId: String, approve: Boolean) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.reviewCandidate(candidateId, approve, learningDao)
+        }
+    }
+
+    fun deleteCandidate(id: String) {
+        viewModelScope.launch {
+            learningDao.deleteLearningCandidateById(id)
+        }
+    }
+
+    fun deleteSharedKnowledge(id: String) {
+        viewModelScope.launch {
+            learningDao.deleteSharedKnowledgeById(id)
+        }
+    }
+
+    fun addSharedKnowledge(title: String, summary: String, category: String = "General Knowledge") {
+        viewModelScope.launch {
+            learningDao.insertSharedKnowledge(
+                SharedKnowledgeEntity(
+                    title = title,
+                    summary = summary,
+                    category = category,
+                    verificationStatus = "VERIFIED",
+                    isShared = true
+                )
+            )
+        }
+    }
+
+    fun enqueueTask(taskType: String, title: String, details: String) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.enqueueTask(
+                taskType = taskType,
+                title = title,
+                details = details,
+                learningDao = learningDao
+            )
+        }
+    }
+
+    fun runNextQueuedTask() {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.executeNextTask(
+                context = getApplication(),
+                knowledgeDao = database.knowledgeDao(),
+                learningDao = learningDao
+            )
+        }
+    }
+
+    fun runDiagnostics() {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.runSelfDiagnostics(learningDao)
+        }
+    }
+
+    fun proposePatch(title: String, targetFile: String, diff: String, description: String) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.proposeSafeCodePatch(
+                title = title,
+                targetFile = targetFile,
+                patchDiff = diff,
+                description = description,
+                learningDao = learningDao
+            )
+        }
+    }
+
+    fun reviewPatch(patchId: String, approve: Boolean) {
+        viewModelScope.launch {
+            com.example.domain.engine.SystemLearningManager.reviewPatch(patchId, approve, learningDao)
+        }
+    }
+
+    fun clearLearningEvents() {
+        viewModelScope.launch {
+            learningDao.clearLearningEvents()
+        }
+    }
+
+    fun clearAllMemories() {
+        viewModelScope.launch {
+            learningDao.clearUserMemories()
         }
     }
 }

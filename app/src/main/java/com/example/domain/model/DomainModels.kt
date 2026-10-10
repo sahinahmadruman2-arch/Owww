@@ -95,7 +95,8 @@ data class GeneratedAnswerResult(
     val executionTrace: List<String> = emptyList(),
     val verificationStatus: String = "Verified",
     val detectedConstraints: List<String> = emptyList(),
-    val reasoningDepth: String = "Deep Multi-Hop Synthesis"
+    val reasoningDepth: String = "Deep Multi-Hop Synthesis",
+    val retryCount: Int = 0
 )
 
 data class PipelineStageProgress(

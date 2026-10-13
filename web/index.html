@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karllo AI — Professional Voice Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <!-- Top Left 3 Dots Button & Dropdown Menu -->
+      <div class="dots-menu-wrapper">
+        <button id="topMenuDotsBtn" class="menu-dots-btn" title="Menu Options (3 Dots)" aria-label="Menu Options">
+          ⋮
+        </button>
+        
+        <!-- 3 Dots Dropdown Menu -->
+        <div id="topDropdownMenu" class="top-dropdown-menu">
+          <div class="dropdown-header">Voice Actions</div>
+          <button id="menuSpeakItem" class="dropdown-item primary-action">
+            <span class="dropdown-item-icon">🎙️</span>
+            <span class="dropdown-item-label">Speak to Karllo</span>
+          </button>
+          <button id="menuHandsFreeItem" class="dropdown-item">
+            <span class="dropdown-item-icon">🗣️</span>
+            <span class="dropdown-item-label">Continuous Hands-Free</span>
+          </button>
+          <button id="menuStopSpeakingItem" class="dropdown-item">
+            <span class="dropdown-item-icon">⏹️</span>
+            <span class="dropdown-item-label">Stop Speaking</span>
+          </button>
+          <div class="dropdown-divider"></div>
+          <button id="menuMuteItem" class="dropdown-item">
+            <span class="dropdown-item-icon">🔊</span>
+            <span class="dropdown-item-label">Toggle Mute</span>
+          </button>
+          <button id="menuSettingsItem" class="dropdown-item">
+            <span class="dropdown-item-icon">⚙️</span>
+            <span class="dropdown-item-label">Voice Settings</span>
+          </button>
+          <button id="menuClearItem" class="dropdown-item danger">
+            <span class="dropdown-item-icon">🗑️</span>
+            <span class="dropdown-item-label">Clear Conversation</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Top Left Speak Button Right Next to 3 Dots -->
+      <button id="topLeftSpeakBtn" class="top-left-speak-btn" title="Speak to Karllo">
+        <span id="topLeftSpeakIcon">🎙️</span>
+        <span id="topLeftSpeakLabel">Speak</span>
+      </button>
+
+      <!-- Brand Logo & Title -->
+      <div class="brand-section">
+        <div class="reactor-icon"></div>
+        <div>
+          <div class="brand-title">Karllo AI</div>
+          <div class="brand-subtitle">UrBots7 Neural Assistant</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header Right Controls -->
+    <div class="header-right">
+      <div class="status-pill" id="systemTelemetryPill">
+        <div class="status-dot"></div>
+        <span id="telemetryStatusText">Online • 2.4M Parameters</span>
+      </div>
+
+      <select id="langSelect" class="lang-select" title="Recognition Language">
+        <option value="en-US">English (US)</option>
+        <option value="bn-BD">বাংলা (Bengali)</option>
+        <option value="en-GB">English (UK)</option>
+      </select>
+
+      <button id="continuousToggleBtn" class="header-action-btn" title="Toggle Hands-Free Continuous Loop">
+        <span id="continuousIcon">🎙️</span>
+        <span class="btn-text-desktop">Hands-Free</span>
+      </button>
+
+      <button id="muteToggleBtn" class="header-action-btn" title="Toggle Audio Mute">
+        <span id="muteIcon">🔊</span>
+      </button>
+
+      <button id="settingsModalBtn" class="header-action-btn" title="Voice & Speech Settings">
+        ⚙️ Settings
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Professional Layout -->
+  <main class="app-main">
+    <!-- Primary Interaction Stage -->
+    <section class="main-column">
+      <!-- Voice Visualizer Card -->
+      <div class="app-card visualizer-card">
+        <div class="card-header-bar">
+          <span class="card-tag">Acoustic Neural Interface</span>
+          <div id="statusBadge" class="status-badge standby">STANDBY</div>
+        </div>
+
+        <canvas id="jarvisCanvas" class="visualizer-canvas"></canvas>
+
+        <div id="liveTranscriptBox" class="live-transcript-box">
+          Press "Speak" or the microphone button below to start talking...
+        </div>
+
+        <!-- Central Speak & Action Bar -->
+        <div class="voice-action-bar">
+          <button id="micBtn" class="mic-toggle-btn" title="Tap to Speak / Stop Listening" aria-label="Microphone">
+            🎙️
+          </button>
+          <button id="stopSpeakingBtn" class="stop-speaking-btn" title="Interrupt Karllo's Voice Output">
+            ⏹️ Stop Speaking
+          </button>
+        </div>
+
+        <!-- Quick Question Chips -->
+        <div class="suggestion-chips">
+          <button class="chip" data-query="Status check">📊 Status Check</button>
+          <button class="chip" data-query="Set a 5 minute timer">⏱️ 5 Min Timer</button>
+          <button class="chip" data-query="Kemon acho?">🇧🇩 Kemon Acho?</button>
+          <button class="chip" data-query="What is quantum computing?">⚛️ Quantum Computing</button>
+          <button class="chip" data-query="Save note: Prepare UrBots7 training dataset">📝 Save Note</button>
+          <button class="chip" data-query="Explain infinity analysis">✨ Infinity Analysis</button>
+        </div>
+      </div>
+
+      <!-- Dialogue Feed Card -->
+      <div class="app-card dialogue-card">
+        <div class="dialogue-header">
+          <div class="dialogue-title-section">
+            <h2 class="dialogue-title">Conversation Feed</h2>
+            <span class="dialogue-subtitle">Real-Time Spoken Interaction</span>
+          </div>
+          <div class="dialogue-header-actions">
+            <button id="headerSpeakBtn" class="conversation-speak-btn" title="Click to Speak into Conversation">
+              <span id="headerSpeakIcon">🎙️</span>
+              <span id="headerSpeakText">Speak</span>
+            </button>
+            <button id="clearChatBtn" class="clear-chat-btn" title="Clear Conversation">Clear</button>
+          </div>
+        </div>
+
+        <!-- Messages Stream -->
+        <div id="dialogueStream" class="dialogue-stream">
+          <div class="message-bubble karllo">
+            <div class="bubble-content">Greetings! I am Karllo AI, your autonomous personal assistant. Web Speech recognition and vocal synthesis are fully active. Click the <strong>Speak</strong> button on the top-left or below to talk to me.</div>
+            <div class="bubble-meta">
+              <span>INITIALIZED • LOCAL REASONING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dedicated Conversation Input & Speaking Bar -->
+        <div class="conversation-input-container">
+          <div id="listeningIndicatorBar" class="listening-indicator-bar">
+            <div class="listening-dot"></div>
+            <span id="listeningIndicatorText">Listening to your voice... Speak now</span>
+            <div class="audio-wave-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+
+          <div class="conversation-input-row">
+            <button id="chatSpeakBtn" class="chat-speak-action-btn" title="Click to Speak directly into this conversation" aria-label="Speak into Conversation">
+              <span id="chatSpeakIcon" class="mic-icon">🎙️</span>
+              <span id="chatSpeakText" class="btn-text">Speak</span>
+            </button>
+            <div class="input-wrapper">
+              <input type="text" id="conversationTextInput" placeholder="Click 'Speak' or type your message here..." autocomplete="off" />
+            </div>
+            <button id="sendMessageBtn" class="send-message-btn" title="Send Message" aria-label="Send">
+              ➤
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sidebar: Automations, Tasks & Telemetry -->
+    <aside class="sidebar-column">
+      <!-- Active Timers -->
+      <div class="app-card sidebar-panel">
+        <div class="panel-header">
+          <h3 class="panel-title">Active Timers</h3>
+          <span class="panel-badge" id="activeTimerBadge">0 Active</span>
+        </div>
+        <div id="timerList" class="workflow-list">
+          <div class="empty-state-text">
+            No active timers. Speak "Set a timer for 10 minutes".
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes Scratchpad -->
+      <div class="app-card sidebar-panel">
+        <div class="panel-header">
+          <h3 class="panel-title">Persistent Notes</h3>
+          <button id="addNoteManualBtn" class="small-add-btn">+ New</button>
+        </div>
+        <div id="notesList" class="workflow-list">
+          <!-- Notes loaded here -->
+        </div>
+      </div>
+
+      <!-- Neural Engine & Model Status -->
+      <div class="app-card sidebar-panel">
+        <div class="panel-header">
+          <h3 class="panel-title">Model Specifications</h3>
+          <span class="panel-badge success">Native Weights</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Model Architecture</div>
+            <div class="stat-value">6-Layer Decoder</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Trainable Parameters</div>
+            <div class="stat-value highlight">2.4M+</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Dataset Scale</div>
+            <div class="stat-value">1T+ Words</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">External LLM</div>
+            <div class="stat-value success">Removed</div>
+          </div>
+        </div>
+
+        <div class="script-links">
+          <a href="/train_urbots7_pytorch.py" download class="script-btn">
+            📥 PyTorch Training Script (.py)
+          </a>
+          <a href="/UrBots7_Free_GPU_Training_Colab.ipynb" download class="script-btn">
+            🚀 Colab GPU Notebook (.ipynb)
+          </a>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Voice & Audio Settings</h3>
+        <button id="closeSettingsBtn" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="voiceSelect">Speech Synthesis Voice</label>
+        <select id="voiceSelect" class="form-select">
+          <option value="">Default System Voice</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="label-with-value">
+          <label class="form-label" for="speechRate">Speech Speed / Rate</label>
+          <span id="rateValue" class="value-display">1.0x</span>
+        </div>
+        <input type="range" id="speechRate" class="form-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="form-group">
+        <div class="label-with-value">
+          <label class="form-label" for="speechPitch">Voice Pitch</label>
+          <span id="pitchValue" class="value-display">1.0</span>
+        </div>
+        <input type="range" id="speechPitch" class="form-slider" min="0.5" max="1.5" step="0.1" value="1.0">
+      </div>
+
+      <div class="form-group">
+        <div class="label-with-value">
+          <label class="form-label" for="speechVolume">Voice Volume</label>
+          <span id="volumeValue" class="value-display">100%</span>
+        </div>
+        <input type="range" id="speechVolume" class="form-slider" min="0" max="1.0" step="0.05" value="1.0">
+      </div>
+
+      <div class="modal-footer">
+        <button id="testVoiceBtn" class="test-voice-btn">🔊 Test Voice</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Note Input Modal -->
+  <div id="noteModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">New Note</h3>
+        <button id="closeNoteBtn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="form-group">
+        <textarea id="manualNoteText" rows="4" class="form-textarea" placeholder="Enter note or research thought..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="saveManualNoteBtn" class="save-note-btn">Save Note</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

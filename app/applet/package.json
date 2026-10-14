@@ -1,0 +1,8 @@
+{
+  "name": "urbots7-karllo",
+  "version": "2.0.0",
+  "description": "Karllo AI Voice Assistant & UrBots7 Neural Intelligence",
+  "scripts": {
+    "start": "python3 -m http.server 3000 --directory web"
+  }
+}

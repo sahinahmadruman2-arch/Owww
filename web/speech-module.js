@@ -42,6 +42,16 @@ export class KarlloVoiceModule {
     this.onError = options.onError || (() => {});
     this.onVoicesReady = options.onVoicesReady || (() => {});
 
+    // Native Android Bridge listener
+    if (typeof window !== 'undefined') {
+      window.onNativeSpeechResult = (text) => {
+        if (text) {
+          this.onTranscript(text, true);
+        }
+        this.setState('IDLE');
+      };
+    }
+
     this.initRecognition();
     this.initSynthesis();
   }
@@ -168,8 +178,19 @@ export class KarlloVoiceModule {
       this.stopSpeaking();
     }
 
+    // Check Native Android Bridge first
+    if (typeof window !== 'undefined' && window.AndroidVoiceBridge && window.AndroidVoiceBridge.startNativeSpeech) {
+      try {
+        this.setState('LISTENING');
+        window.AndroidVoiceBridge.startNativeSpeech();
+        return true;
+      } catch (e) {
+        console.warn('Native speech trigger error:', e);
+      }
+    }
+
     if (!this.isSttSupported) {
-      this.onError('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      this.onError('Speech Recognition is not available. Please check microphone permissions.');
       return false;
     }
 
@@ -214,20 +235,42 @@ export class KarlloVoiceModule {
 
   /** Speak a response using Text-To-Speech */
   speak(text, customOptions = {}) {
-    if (!this.synthesis || this.isMuted || !text) {
+    if (this.isMuted || !text) {
       return Promise.resolve();
     }
 
     this.stopSpeaking();
 
-    return new Promise((resolve) => {
-      // Clean markdown and formatting tags for clean spoken pronunciation
-      const cleanText = text
-        .replace(/[*#_`~>]/g, '')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/https?:\/\/\S+/g, 'link')
-        .trim();
+    // Clean markdown and formatting tags for clean spoken pronunciation
+    const cleanText = text
+      .replace(/[*#_`~>]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/https?:\/\/\S+/g, 'link')
+      .trim();
 
+    // Check Native Android Bridge first
+    if (typeof window !== 'undefined' && window.AndroidVoiceBridge && window.AndroidVoiceBridge.speakNative) {
+      this.setState('SPEAKING');
+      try {
+        window.AndroidVoiceBridge.speakNative(cleanText);
+      } catch (e) {
+        console.warn('Native TTS error:', e);
+      }
+      const duration = Math.min(8000, Math.max(1200, cleanText.length * 60));
+      setTimeout(() => {
+        if (this.state === 'SPEAKING') {
+          this.setState('IDLE');
+          this.onResponseSpoken(text);
+        }
+      }, duration);
+      return Promise.resolve();
+    }
+
+    if (!this.synthesis) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = customOptions.rate ?? this.options.rate;
       utterance.pitch = customOptions.pitch ?? this.options.pitch;

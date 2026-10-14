@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Karllo AI — Professional Voice Assistant</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,12 +58,14 @@
         <span id="topLeftSpeakLabel">Speak</span>
       </button>
 
-      <!-- Brand Logo & Title -->
+      <!-- Brand Logo & Title with New Logo -->
       <div class="brand-section">
-        <div class="reactor-icon"></div>
+        <div class="brand-logo-wrapper">
+          <img src="logo.png" alt="Karllo Neural Logo" class="brand-logo-img">
+        </div>
         <div>
           <div class="brand-title">Karllo AI</div>
-          <div class="brand-subtitle">UrBots7 Neural Assistant</div>
+          <div class="brand-subtitle">UrBots7 Neural Intelligence</div>
         </div>
       </div>
     </div>
@@ -70,7 +74,7 @@
     <div class="header-right">
       <div class="status-pill" id="systemTelemetryPill">
         <div class="status-dot"></div>
-        <span id="telemetryStatusText">Online • 2.4M Parameters</span>
+        <span id="telemetryStatusText">🌐 Live Web & Analysis • 2.4M</span>
       </div>
 
       <select id="langSelect" class="lang-select" title="Recognition Language">
@@ -105,10 +109,15 @@
           <div id="statusBadge" class="status-badge standby">STANDBY</div>
         </div>
 
-        <canvas id="jarvisCanvas" class="visualizer-canvas"></canvas>
+        <div class="visualizer-stage-wrapper">
+          <canvas id="jarvisCanvas" class="visualizer-canvas"></canvas>
+          <div class="hud-center-badge">
+            <img src="logo.png" alt="Karllo Neural Reactor" class="hud-center-logo-img">
+          </div>
+        </div>
 
         <div id="liveTranscriptBox" class="live-transcript-box">
-          Press "Speak" or the microphone button below to start talking...
+          Press "Speak" or the microphone button below to talk with Karllo...
         </div>
 
         <!-- Central Speak & Action Bar -->
@@ -121,14 +130,15 @@
           </button>
         </div>
 
-        <!-- Quick Question Chips -->
+        <!-- Quick Question & Training Chips -->
         <div class="suggestion-chips">
+          <button class="chip primary-chip" data-query="train model hi hello">🎓 Train "Hi / Hello"</button>
+          <button class="chip" data-query="hello karllo">👋 "Hello Karllo!"</button>
+          <button class="chip" data-query="search web for quantum computing breakthroughs">🌐 Live Web Search</button>
+          <button class="chip" data-query="deep analysis of neural attention mechanisms">🔬 Deep Analysis</button>
+          <button class="chip" data-query="kemon acho?">🇧🇩 Kemon Acho?</button>
           <button class="chip" data-query="Status check">📊 Status Check</button>
           <button class="chip" data-query="Set a 5 minute timer">⏱️ 5 Min Timer</button>
-          <button class="chip" data-query="Kemon acho?">🇧🇩 Kemon Acho?</button>
-          <button class="chip" data-query="What is quantum computing?">⚛️ Quantum Computing</button>
-          <button class="chip" data-query="Save note: Prepare UrBots7 training dataset">📝 Save Note</button>
-          <button class="chip" data-query="Explain infinity analysis">✨ Infinity Analysis</button>
         </div>
       </div>
 
@@ -151,9 +161,16 @@
         <!-- Messages Stream -->
         <div id="dialogueStream" class="dialogue-stream">
           <div class="message-bubble karllo">
-            <div class="bubble-content">Greetings! I am Karllo AI, your autonomous personal assistant. Web Speech recognition and vocal synthesis are fully active. Click the <strong>Speak</strong> button on the top-left or below to talk to me.</div>
-            <div class="bubble-meta">
-              <span>INITIALIZED • LOCAL REASONING</span>
+            <div class="msg-avatar-wrapper">
+              <img src="logo.png" class="msg-avatar karllo-avatar" alt="Karllo Neural">
+            </div>
+            <div class="bubble-content-box">
+              <div class="bubble-text">
+                Greetings! I am <strong>Karllo AI</strong>, your autonomous personal assistant. Real-time voice interaction, neural understanding, and speech synthesis are active. Click the <strong>Speak</strong> button on the top-left or below to talk with me!
+              </div>
+              <div class="bubble-meta">
+                <span>ONLINE • NEURAL REASONING ACTIVE</span>
+              </div>
             </div>
           </div>
         </div>
@@ -247,6 +264,43 @@
     </aside>
   </main>
 
+  <!-- Voice Dictation & Quick Prompt Modal -->
+  <div id="voiceDictationModal" class="modal-overlay">
+    <div class="modal-card voice-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-with-logo">
+          <img src="logo.png" class="modal-logo-icon" alt="Logo">
+          <h3 class="modal-title">Voice Interaction Assistant</h3>
+        </div>
+        <button id="closeVoiceModalBtn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body-voice">
+        <div class="voice-modal-hero">
+          <div class="voice-pulsing-orb">
+            <img src="logo.png" class="pulsing-logo-img" alt="Karllo Voice">
+            <div class="pulse-ring ring-1"></div>
+            <div class="pulse-ring ring-2"></div>
+          </div>
+          <div class="voice-modal-status">Tap any prompt below to speak it directly, or enter your voice query:</div>
+        </div>
+
+        <div class="voice-quick-prompts">
+          <button class="voice-prompt-chip" data-speak="What is your architecture and capabilities?">🎙️ "What is your architecture?"</button>
+          <button class="voice-prompt-chip" data-speak="Set a 5 minute productivity timer">⏱️ "Set a 5 min timer"</button>
+          <button class="voice-prompt-chip" data-speak="Kemon acho Karllo?">🇧🇩 "Kemon acho Karllo?"</button>
+          <button class="voice-prompt-chip" data-speak="Save note: Prepare UrBots7 training dataset">📝 "Save a new note"</button>
+          <button class="voice-prompt-chip" data-speak="Explain how quantum computers work">⚛️ "Explain quantum computing"</button>
+          <button class="voice-prompt-chip" data-speak="Tell me your system status and memory">📊 "System status check"</button>
+        </div>
+
+        <div class="dictation-input-row">
+          <input type="text" id="dictationManualInput" placeholder="Type or dictate your voice command here..." autocomplete="off" />
+          <button id="submitDictationBtn" class="submit-dictation-btn">Speak Query</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal-overlay">
     <div class="modal-card">
@@ -308,6 +362,7 @@
     </div>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <!-- Unified Robust Script Bundle -->
+  <script src="bundle.js"></script>
 </body>
 </html>
